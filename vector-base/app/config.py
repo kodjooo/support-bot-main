@@ -19,6 +19,7 @@ class Settings(BaseSettings):
         default="text-embedding-3-small",
         alias="OPENAI_EMBEDDING_MODEL",
     )
+    openai_proxy_url: Optional[str] = Field(default=None, alias="OPENAI_PROXY_URL")
     # Количество релевантных чанков, возвращаемых при поиске
     search_top_k: int = Field(default=3, alias="SEARCH_TOP_K")
     # Во сколько раз больше кандидатов брать из ChromaDB перед переранжированием

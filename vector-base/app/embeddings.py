@@ -8,6 +8,7 @@ from openai import OpenAI
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import Settings, get_settings
+from app.openai_client import create_openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class EmbeddingService:
         retry_attempts: int | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.client = client or OpenAI(api_key=self.settings.openai_api_key.get_secret_value())
+        self.client = client or create_openai_client(self.settings)
 
         attempts = retry_attempts or 3
         self._retryer = Retrying(

@@ -1,8 +1,11 @@
 import asyncio
+import logging
 
 from aiogram import Bot
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def get_image_url(bot: Bot, file_id: str) -> str:
@@ -14,7 +17,10 @@ async def get_image_url(bot: Bot, file_id: str) -> str:
 async def keep_typing(bot: Bot, chat_id: str, stop_event: asyncio.Event) -> None:
     """Шлёт действие 'typing' каждые 4 секунды пока не установлен stop_event."""
     while not stop_event.is_set():
-        await bot.send_chat_action(chat_id=chat_id, action="typing")
+        try:
+            await bot.send_chat_action(chat_id=chat_id, action="typing", request_timeout=3)
+        except Exception as exc:  # noqa: BLE001 - индикатор печати не должен срывать ответ.
+            logger.warning("Не удалось отправить Telegram chat action typing (chat_id=%s): %s", chat_id, exc)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=4)
         except asyncio.TimeoutError:

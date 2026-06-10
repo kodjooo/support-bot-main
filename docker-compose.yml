@@ -9,6 +9,8 @@ services:
     depends_on:
       vector-base:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - support-net
     restart: unless-stopped
@@ -23,6 +25,8 @@ services:
       - ./support-bot/tests:/app/tests:ro
     profiles:
       - test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - support-net
 
@@ -33,7 +37,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8080:8080"
+      - "${VECTOR_BASE_PUBLISHED_PORT:-8080}:8080"
     volumes:
       - ./vector-base/meta:/app/meta
       - ./vector-base/artifacts:/app/artifacts:ro
@@ -41,6 +45,8 @@ services:
     depends_on:
       chroma:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - support-net
     restart: unless-stopped
@@ -53,6 +59,8 @@ services:
     command: pytest
     profiles:
       - test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - support-net
 

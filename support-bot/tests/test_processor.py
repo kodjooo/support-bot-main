@@ -1,8 +1,10 @@
+import asyncio
 import os
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test")
 os.environ.setdefault("OPENAI_API_KEY", "test")
@@ -17,7 +19,7 @@ from app.bot.processor import process_and_reply
 db._db_path = "/tmp/test_processor.db"
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def clean_db():
     if os.path.exists("/tmp/test_processor.db"):
         os.remove("/tmp/test_processor.db")
@@ -104,6 +106,45 @@ async def test_saves_new_response_id():
 
     record = await db.get_user("5")
     assert record.last_response_id == "resp_new_999"
+
+
+@pytest.mark.asyncio
+async def test_typing_error_does_not_block_reply():
+    await _seed("7", ["вопрос"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock(side_effect=RuntimeError("telegram timeout"))
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_ai.return_value = ("Ответ после сбоя typing", False, "resp_typing_error")
+        await process_and_reply(bot, "7")
+
+    bot.send_message.assert_called_once()
+    assert bot.send_message.call_args.kwargs["text"] == "Ответ после сбоя typing"
+    record = await db.get_user("7")
+    assert record.texts == []
+
+
+@pytest.mark.asyncio
+async def test_typing_uses_short_telegram_timeout():
+    await _seed("8", ["вопрос"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    async def delayed_reply(*args, **kwargs):
+        await asyncio.sleep(0)
+        return "Ответ", False, "resp_typing_timeout"
+
+    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_ai.side_effect = delayed_reply
+        await process_and_reply(bot, "8")
+
+    bot.send_chat_action.assert_called()
+    assert bot.send_chat_action.call_args.kwargs["request_timeout"] == 3
+    bot.send_message.assert_called_once()
 
 
 @pytest.mark.asyncio

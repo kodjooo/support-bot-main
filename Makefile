@@ -22,7 +22,7 @@ logs-vector:
 	docker compose logs -f vector-base
 
 health:
-	curl -sS http://localhost:8080/health
+	curl -sS "http://localhost:$$(docker compose port vector-base 8080 | sed 's/.*://')/health"
 
 test:
 	docker compose run --rm bot-tests

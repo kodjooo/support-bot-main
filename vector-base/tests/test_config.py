@@ -44,6 +44,19 @@ def test_get_settings_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert settings.search_keyword_limit == 2000
 
 
+def test_get_settings_reads_openai_proxy_url(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    reload_settings()
+    _set_common_env(monkeypatch)
+    service_account_path = tmp_path / "service.json"
+    service_account_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_FILE", os.fspath(service_account_path))
+    monkeypatch.setenv("OPENAI_PROXY_URL", "http://host.docker.internal:8080")
+
+    settings = get_settings()
+
+    assert settings.openai_proxy_url == "http://host.docker.internal:8080"
+
+
 def test_missing_service_account_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     reload_settings()
     _set_common_env(monkeypatch)

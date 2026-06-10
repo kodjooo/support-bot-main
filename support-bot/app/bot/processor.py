@@ -96,10 +96,9 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
         async def _stop_typing() -> None:
             """Идемпотентно гасит индикатор печати при любом исходе."""
             stop_event.set()
-            try:
-                await typing_task
-            except asyncio.CancelledError:
-                pass
+            if not typing_task.done():
+                typing_task.cancel()
+            await asyncio.gather(typing_task, return_exceptions=True)
 
         try:
             # Жёсткий таймаут: зависший запрос к OpenAI (например, при битой

@@ -13,6 +13,7 @@ from openai import OpenAI
 
 from app.config import get_settings
 from app.google_docs import GoogleDocsService
+from app.openai_client import create_openai_client
 
 
 SYSTEM_PROMPT = """Ты перерабатываешь русскоязычную базу знаний Sellerdata для RAG-поиска.
@@ -253,7 +254,7 @@ def main() -> None:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     sources = fetch_sources(args.output_dir)
-    client = OpenAI(timeout=120.0, max_retries=2)
+    client = create_openai_client(get_settings(), timeout=120.0, max_retries=2)
 
     all_chunks: list[dict[str, Any]] = []
     rewritten_dir = args.output_dir / "rewritten"

@@ -1,12 +1,13 @@
 import logging
 
-from openai import AsyncOpenAI, BadRequestError
+from openai import BadRequestError
 
 from app.config import settings
+from app.ai.openai_client import create_async_openai_client
 
 logger = logging.getLogger(__name__)
 
-_client = AsyncOpenAI(api_key=settings.openai_api_key)
+_client = create_async_openai_client()
 
 # Инструмент Function Calling для перевода на оператора
 OPERATOR_TOOLS = [

@@ -53,7 +53,7 @@ make ps           # показать состояние сервисов
 make logs         # все логи
 make logs-bot     # логи Telegram-бота
 make logs-vector  # логи vector-base
-make health       # проверить http://localhost:8080/health
+make health       # проверить опубликованный /health vector-base
 make test         # тесты bot и vector-base
 make sync         # ручная полная синхронизация Google Docs
 make load-rag     # загрузить подготовленный RAG-корпус в ChromaDB
@@ -67,9 +67,10 @@ make load-rag     # загрузить подготовленный RAG-корп
 
 ```env
 VECTOR_BASE_URL=http://vector-base:8080
+VECTOR_BASE_PUBLISHED_PORT=8081
 ```
 
-Локальный IP компьютера для этой связи не используется.
+`VECTOR_BASE_URL` используется только внутри Docker-сети. `VECTOR_BASE_PUBLISHED_PORT` задаёт внешний порт на хосте для ручной проверки `/health` и `/search`. Если порт `8080` нужен локальному OpenAI-прокси, оставьте `VECTOR_BASE_PUBLISHED_PORT=8081`.
 
 ## Ручная Синхронизация
 
@@ -136,6 +137,14 @@ nano .env
 vector-base/secrets/google_service_account.json
 ```
 
+Если OpenAI должен ходить через локальный прокси на Docker-хосте, укажите:
+
+```env
+OPENAI_PROXY_URL=http://host.docker.internal:8080
+```
+
+`127.0.0.1:8080` внутри контейнера указывает на сам контейнер. Для прокси, запущенного на сервере или локальном компьютере рядом с Docker, используйте `host.docker.internal`; в `docker-compose.yml` добавлен `host-gateway` для Linux.
+
 Запуск:
 
 ```bash
@@ -146,7 +155,7 @@ docker compose up -d --build
 
 ```bash
 docker compose ps
-curl -sS http://localhost:8080/health
+make health
 docker compose logs -f bot
 ```
 
