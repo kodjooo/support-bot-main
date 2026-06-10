@@ -8,7 +8,7 @@
 - `vector-base/` — FastAPI `/health` и `/search`, синхронизация Google Docs, RAG-загрузка.
 - `chroma` — векторное хранилище.
 
-Архитектура описана в [`docs/architecture.md`](docs/architecture.md). Правила сопровождения лежат в [`docs/arch-rules.md`](docs/arch-rules.md), правила для AI-агента — в [`AGENTS.md`](AGENTS.md).
+Архитектура описана в [`docs/architecture.md`](docs/architecture.md). Правила сопровождения лежат в [`docs/arch-rules.md`](docs/arch-rules.md).
 
 ## Быстрый Старт
 
@@ -104,11 +104,75 @@ make test-bot
 make test-vector
 ```
 
+## Развёртывание На Сервере
+
+Требования на сервере:
+
+- Linux-сервер с Docker и Docker Compose v2.
+- Доступ к репозиторию `https://github.com/kodjooo/support-bot-main.git`.
+- Telegram bot token, OpenAI API key, Google service account key.
+
+Установка Docker на Ubuntu/Debian:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"
+```
+
+После добавления пользователя в группу `docker` перелогиньтесь на сервер.
+
+Клонирование и настройка:
+
+```bash
+git clone https://github.com/kodjooo/support-bot-main.git
+cd support-bot-main
+cp .env.example .env
+nano .env
+```
+
+Заполните `.env` реальными значениями. Google service account key положите в:
+
+```text
+vector-base/secrets/google_service_account.json
+```
+
+Запуск:
+
+```bash
+docker compose up -d --build
+```
+
+Проверка:
+
+```bash
+docker compose ps
+curl -sS http://localhost:8080/health
+docker compose logs -f bot
+```
+
+Загрузка подготовленного RAG-корпуса:
+
+```bash
+docker compose exec vector-base python -m app.load_rag_corpus artifacts/rag_corpus/rag_chunks.jsonl
+```
+
+Обновление версии на сервере:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Остановка:
+
+```bash
+docker compose down
+```
+
 ## Документация
 
 - [`docs/architecture.md`](docs/architecture.md) — архитектура стека и сервисов.
 - [`docs/arch-rules.md`](docs/arch-rules.md) — правила сопровождения.
-- [`AGENTS.md`](AGENTS.md) — правила сопровождения проекта.
 
 Внутренние `docs/`, `README.md`, `AGENTS.md`, `.env.example` и `.gitignore` в подпроектах удалены, а важная информация перенесена в корневую документацию.
 `requirements.txt` в подпроектах оставлены намеренно: они нужны Docker-сборке сервисов.
