@@ -161,6 +161,20 @@ OPENAI_PROXY_URL=socks5://host.docker.internal:18080
 TELEGRAM_PROXY_URL=socks5://host.docker.internal:18080
 ```
 
+Если на сервере Docker-to-host bridge traffic фильтруется firewall и контейнеры всё равно не видят forwarder, запускайте сервисы с host-network override:
+
+```env
+OPENAI_PROXY_URL=socks5://127.0.0.1:8080
+TELEGRAM_PROXY_URL=socks5://127.0.0.1:8080
+VECTOR_BASE_URL=http://127.0.0.1:8081
+API_PORT=8081
+CHROMA_HOST=127.0.0.1
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host.yml up -d --build
+```
+
 Запуск:
 
 ```bash

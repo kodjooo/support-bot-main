@@ -1,0 +1,15 @@
+services:
+  bot:
+    network_mode: host
+    networks: !reset []
+    extra_hosts: !reset []
+
+  vector-base:
+    network_mode: host
+    networks: !reset []
+    extra_hosts: !reset []
+    ports: !reset []
+
+  chroma:
+    network_mode: host
+    networks: !reset []
