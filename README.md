@@ -137,6 +137,19 @@ nano .env
 vector-base/secrets/google_service_account.json
 ```
 
+Бот использует двухэтапный RAG pipeline: сначала внутренний planner решает, достаточно ли данных для поиска, затем `vector-base` ищет по нормализованному запросу, после чего внутренний reranker отбирает релевантные чанки для финального ответа. Основные параметры:
+
+```env
+OPENAI_PLANNER_MODEL=
+OPENAI_RERANK_MODEL=
+RAG_MAX_CLARIFICATIONS=2
+RAG_SEARCH_TOP_K=6
+RAG_RERANK_KEEP=3
+RAG_PLANNER_CONFIDENCE_THRESHOLD=0.65
+```
+
+Пустые `OPENAI_PLANNER_MODEL` и `OPENAI_RERANK_MODEL` означают, что используется `OPENAI_MODEL`.
+
 Если OpenAI должен ходить через локальный прокси на Docker-хосте, укажите:
 
 ```env

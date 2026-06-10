@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-4o"
+    openai_planner_model: str | None = None  # модель для внутреннего планирования RAG; пусто = OPENAI_MODEL
+    openai_rerank_model: str | None = None  # модель для внутреннего rerank чанков; пусто = OPENAI_MODEL
     openai_system_prompt_file: str = "system_prompt.txt"  # путь к файлу с системным промптом
     openai_temperature: float | None = None  # None = использовать дефолт модели (0.0–2.0); не поддерживается моделями o-серии
     openai_reasoning_effort: str | None = None  # low / medium / high; только для моделей o-серии (o3, o4-mini и др.)
-    openai_proxy_url: str | None = None  # HTTP/HTTPS-прокси для всех запросов к OpenAI; пусто = без прокси
+    openai_proxy_url: str | None = None  # HTTP/HTTPS/SOCKS-прокси для всех запросов к OpenAI; пусто = без прокси
 
     def get_instructions(self) -> str:
         """Читает системный промпт из файла. Возвращает пустую строку если файл не найден."""
@@ -42,6 +44,12 @@ class Settings(BaseSettings):
     max_images: int = 10
     min_photo_width: int = 800
     openai_run_timeout: int = 60
+
+    # RAG pipeline
+    rag_max_clarifications: int = 2
+    rag_search_top_k: int = 6
+    rag_rerank_keep: int = 3
+    rag_planner_confidence_threshold: float = 0.65
 
 
 settings = Settings()

@@ -14,6 +14,7 @@ class UserRecord:
     first_name: str
     last_name: str
     last_response_id: str | None  # ID последнего ответа Responses API (для цепочки диалога)
+    pending_clarification: dict | None
     texts: list[str]
     image_ids: list[str]
     last_update: int
@@ -32,11 +33,16 @@ async def init() -> None:
                 first_name          TEXT,
                 last_name           TEXT,
                 last_response_id    TEXT,
+                pending_clarification_json TEXT,
                 texts_json          TEXT,
                 image_ids_json      TEXT,
                 last_update         INTEGER
             )
         """)
+        async with db.execute("PRAGMA table_info(users)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        if "pending_clarification_json" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN pending_clarification_json TEXT")
         await db.commit()
 
 
@@ -57,6 +63,7 @@ async def get_user(user_id: str) -> UserRecord | None:
         first_name=row["first_name"] or "",
         last_name=row["last_name"] or "",
         last_response_id=row["last_response_id"],
+        pending_clarification=json.loads(row["pending_clarification_json"] or "null"),
         texts=json.loads(row["texts_json"] or "[]"),
         image_ids=json.loads(row["image_ids_json"] or "[]"),
         last_update=row["last_update"] or 0,
@@ -96,12 +103,32 @@ async def upsert_user(
         await db.commit()
 
 
-async def save_last_response_id(user_id: str, last_response_id: str) -> None:
+async def save_last_response_id(user_id: str, last_response_id: str | None) -> None:
     """Сохраняет ID последнего ответа Responses API для продолжения диалога."""
     async with aiosqlite.connect(_db_path) as db:
         await db.execute(
             "UPDATE users SET last_response_id = ? WHERE user_id = ?",
             (last_response_id, user_id),
+        )
+        await db.commit()
+
+
+async def save_pending_clarification(user_id: str, pending: dict) -> None:
+    """Сохраняет состояние уточняющего вопроса для следующей реплики пользователя."""
+    async with aiosqlite.connect(_db_path) as db:
+        await db.execute(
+            "UPDATE users SET pending_clarification_json = ? WHERE user_id = ?",
+            (json.dumps(pending, ensure_ascii=False), user_id),
+        )
+        await db.commit()
+
+
+async def clear_pending_clarification(user_id: str) -> None:
+    """Очищает состояние уточняющего вопроса."""
+    async with aiosqlite.connect(_db_path) as db:
+        await db.execute(
+            "UPDATE users SET pending_clarification_json = NULL WHERE user_id = ?",
+            (user_id,),
         )
         await db.commit()
 

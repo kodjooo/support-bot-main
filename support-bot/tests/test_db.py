@@ -73,3 +73,24 @@ async def test_clear_buffer_keeps_response_id():
     assert record.image_ids == []
     assert record.last_update == 0
     assert record.last_response_id == "resp_xyz"
+
+
+@pytest.mark.asyncio
+async def test_save_and_clear_pending_clarification():
+    now = int(time.time())
+    await db.upsert_user("5", "A", "B", ["msg"], [], now)
+    pending = {
+        "original_texts": ["msg"],
+        "original_image_ids": [],
+        "attempts": 1,
+        "last_question": "Уточните?",
+        "created_at": now,
+    }
+
+    await db.save_pending_clarification("5", pending)
+    record = await db.get_user("5")
+    assert record.pending_clarification == pending
+
+    await db.clear_pending_clarification("5")
+    record = await db.get_user("5")
+    assert record.pending_clarification is None

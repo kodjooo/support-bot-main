@@ -30,7 +30,7 @@ class ContextChunk:
         return f"Источник: {title}\nФрагмент: {self.text}"
 
 
-async def fetch_context(query: str) -> list[str]:
+async def fetch_context(query: str, top_k: int = 3) -> list[ContextChunk]:
     """
     Возвращает релевантные чанки из векторной базы знаний.
     При недоступности сервиса или ошибке возвращает пустой список —
@@ -44,7 +44,7 @@ async def fetch_context(query: str) -> list[str]:
     try:
         async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
             logger.info("[VECTOR] Запрос поиска: %s", query[:300])
-            response = await client.post(url, json={"query": query, "top_k": 3})
+            response = await client.post(url, json={"query": query, "top_k": top_k})
             response.raise_for_status()
             data = response.json()
             chunks = _parse_context(data)
@@ -59,7 +59,7 @@ async def fetch_context(query: str) -> list[str]:
                     chunk.matched_terms,
                     chunk.text[:200],
                 )
-            return [chunk.to_prompt_text() for chunk in chunks]
+            return chunks
     except httpx.TimeoutException:
         logger.warning("Таймаут запроса к векторной базе (%s).", url)
     except httpx.HTTPStatusError as exc:

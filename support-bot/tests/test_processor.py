@@ -14,6 +14,9 @@ os.environ.setdefault("OPERATOR_NAME", "Оператор")
 os.environ.setdefault("DATABASE_PATH", "/tmp/test_processor.db")
 
 import app.storage.db as db
+from app.ai.planner import PlanningResult
+from app.ai.reranker import RerankResult
+from app.ai.vector_client import ContextChunk
 from app.bot.processor import process_and_reply
 
 db._db_path = "/tmp/test_processor.db"
@@ -32,6 +35,34 @@ async def _seed(user_id: str, texts: list[str], image_ids: list[str], age: int =
     await db.upsert_user(user_id, "Иван", "Петров", texts, image_ids, last_update)
 
 
+def _ready_plan(search_query: str = "точный запрос") -> PlanningResult:
+    return PlanningResult(
+        status="ready",
+        clarifying_question=None,
+        search_query=search_query,
+        extracted={"marketplace": None, "section": None, "metric": None, "period": None, "problem": None},
+        confidence=0.9,
+    )
+
+
+def _clarify_plan(question: str = "Уточните раздел?") -> PlanningResult:
+    return PlanningResult(
+        status="need_clarification",
+        clarifying_question=question,
+        search_query=None,
+        extracted={"marketplace": None, "section": None, "metric": None, "period": None, "problem": None},
+        confidence=0.4,
+    )
+
+
+def _chunk(text: str = "Контекст") -> ContextChunk:
+    return ContextChunk(text=text, score=1.0, metadata={"title": "Дашборд"})
+
+
+def _rerank(indices: list[int] | None = None, enough: bool = True) -> RerankResult:
+    return RerankResult(enough_context=enough, selected_indices=indices or [0], reason="ok")
+
+
 @pytest.mark.asyncio
 async def test_sends_reply_on_completed():
     await _seed("1", ["вопрос"], [])
@@ -40,7 +71,13 @@ async def test_sends_reply_on_completed():
     bot.send_chat_action = AsyncMock()
     bot.send_message = AsyncMock()
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
         mock_ai.return_value = ("Ответ ассистента", False, "resp_001")
         await process_and_reply(bot, "1")
 
@@ -58,7 +95,13 @@ async def test_transfers_when_needs_operator():
     bot.send_chat_action = AsyncMock()
     bot.send_message = AsyncMock()
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
         mock_ai.return_value = (None, True, "resp_002")
         await process_and_reply(bot, "2")
 
@@ -100,7 +143,13 @@ async def test_saves_new_response_id():
     bot.send_chat_action = AsyncMock()
     bot.send_message = AsyncMock()
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
         mock_ai.return_value = ("ответ", False, "resp_new_999")
         await process_and_reply(bot, "5")
 
@@ -116,7 +165,13 @@ async def test_typing_error_does_not_block_reply():
     bot.send_chat_action = AsyncMock(side_effect=RuntimeError("telegram timeout"))
     bot.send_message = AsyncMock()
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
         mock_ai.return_value = ("Ответ после сбоя typing", False, "resp_typing_error")
         await process_and_reply(bot, "7")
 
@@ -138,7 +193,13 @@ async def test_typing_uses_short_telegram_timeout():
         await asyncio.sleep(0)
         return "Ответ", False, "resp_typing_timeout"
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
         mock_ai.side_effect = delayed_reply
         await process_and_reply(bot, "8")
 
@@ -159,8 +220,14 @@ async def test_suppresses_stale_reply_when_new_message_arrives_during_processing
         await db.upsert_user("6", "Иван", "Петров", ["Меня", "зовут"], [], int(time.time()))
         return "Ответ на старый фрагмент", False, "resp_stale"
 
-    with patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
         with patch("app.bot.debounce.debounce", new_callable=AsyncMock) as mock_debounce:
+            mock_plan.return_value = _ready_plan()
+            mock_vector.return_value = [_chunk()]
+            mock_rerank.return_value = _rerank()
             mock_ai.side_effect = add_message_during_processing
             await process_and_reply(bot, "6")
 
@@ -169,3 +236,135 @@ async def test_suppresses_stale_reply_when_new_message_arrives_during_processing
     record = await db.get_user("6")
     assert record.texts == ["Меня", "зовут"]
     assert record.last_response_id is None
+
+
+@pytest.mark.asyncio
+async def test_asks_clarification_and_skips_vector_search():
+    await _seed("9", ["у меня не сходятся продажи"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _clarify_plan("Где именно не сходятся продажи?")
+        await process_and_reply(bot, "9")
+
+    bot.send_message.assert_called_once_with(chat_id="9", text="Где именно не сходятся продажи?")
+    mock_vector.assert_not_called()
+    mock_ai.assert_not_called()
+    record = await db.get_user("9")
+    assert record.texts == []
+    assert record.pending_clarification["attempts"] == 1
+    assert record.pending_clarification["original_texts"] == ["у меня не сходятся продажи"]
+
+
+@pytest.mark.asyncio
+async def test_pending_answer_is_combined_and_search_uses_planned_query():
+    await _seed("10", ["в дашборде WB"], [])
+    await db.save_pending_clarification(
+        "10",
+        {
+            "original_texts": ["у меня не сходятся продажи"],
+            "original_image_ids": [],
+            "attempts": 1,
+            "last_question": "Где именно?",
+            "created_at": int(time.time()),
+        },
+    )
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan("расхождение продаж WB в Дашборде")
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
+        mock_ai.return_value = ("ответ", False, "resp_10")
+        await process_and_reply(bot, "10")
+
+    mock_plan.assert_called_once()
+    assert mock_plan.call_args.kwargs["pending"]["attempts"] == 1
+    mock_vector.assert_called_once_with("расхождение продаж WB в Дашборде", top_k=6)
+    assistant_texts = mock_ai.call_args.kwargs["texts"]
+    assert "у меня не сходятся продажи" in assistant_texts[-2]
+    assert "в дашборде WB" in assistant_texts[-1]
+    record = await db.get_user("10")
+    assert record.pending_clarification is None
+    assert record.texts == []
+
+
+@pytest.mark.asyncio
+async def test_transfers_after_clarification_limit():
+    await _seed("11", ["не знаю"], [])
+    await db.save_pending_clarification(
+        "11",
+        {
+            "original_texts": ["у меня не сходятся продажи"],
+            "original_image_ids": [],
+            "attempts": 2,
+            "last_question": "Где именно?",
+            "created_at": int(time.time()),
+        },
+    )
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan:
+        mock_plan.return_value = _clarify_plan()
+        await process_and_reply(bot, "11")
+
+    assert bot.send_message.call_count == 2
+    record = await db.get_user("11")
+    assert record.texts == []
+    assert record.pending_clarification is None
+
+
+@pytest.mark.asyncio
+async def test_reranker_selected_chunks_are_sent_to_assistant():
+    await _seed("12", ["конкретный вопрос"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+    chunks = [_chunk("лишний контекст"), _chunk("нужный контекст")]
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan("точный запрос")
+        mock_vector.return_value = chunks
+        mock_rerank.return_value = _rerank([1])
+        mock_ai.return_value = ("ответ", False, "resp_12")
+        await process_and_reply(bot, "12")
+
+    context = mock_ai.call_args.kwargs["texts"][0]
+    assert "нужный контекст" in context
+    assert "лишний контекст" not in context
+
+
+@pytest.mark.asyncio
+async def test_transfers_when_reranker_rejects_context():
+    await _seed("13", ["конкретный вопрос"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank([], enough=False)
+        await process_and_reply(bot, "13")
+
+    mock_ai.assert_not_called()
+    assert bot.send_message.call_count == 2
