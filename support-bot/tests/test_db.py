@@ -63,6 +63,19 @@ async def test_save_last_response_id():
 
 
 @pytest.mark.asyncio
+async def test_save_last_exchange_roundtrip():
+    now = int(time.time())
+    await db.upsert_user("33", "X", "Y", [], [], now)
+    record = await db.get_user("33")
+    assert record.last_user_text is None
+    assert record.last_bot_answer is None
+    await db.save_last_exchange("33", "как считается выкупаемость?", "Выкупаемость = ...")
+    record = await db.get_user("33")
+    assert record.last_user_text == "как считается выкупаемость?"
+    assert record.last_bot_answer == "Выкупаемость = ..."
+
+
+@pytest.mark.asyncio
 async def test_clear_buffer_keeps_response_id():
     now = int(time.time())
     await db.upsert_user("4", "A", "B", ["msg"], ["img"], now)

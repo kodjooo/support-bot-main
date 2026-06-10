@@ -86,9 +86,19 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
         user_query = "\n".join(effective_texts)
         logger.info("[USER] user_id=%s сообщение: %s", user_id, user_query[:500])
 
+        # Недавний диалог для разрешения follow-up. Передаём только при живой
+        # цепочке (last_response_id есть): после перевода на оператора или с нуля
+        # цепочка сброшена и прошлая пара уже неактуальна как контекст.
+        recent = None
+        if record.last_response_id and record.last_user_text and record.last_bot_answer:
+            recent = {
+                "last_user_text": record.last_user_text,
+                "last_bot_answer": record.last_bot_answer,
+            }
+
         try:
             planning = await asyncio.wait_for(
-                plan_query(record.texts, pending=pending),
+                plan_query(record.texts, pending=pending, recent=recent),
                 timeout=settings.openai_run_timeout,
             )
         except Exception as e:
@@ -285,6 +295,8 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
             try:
                 if cleaned:
                     await bot.send_message(chat_id=user_id, text=cleaned)
+                    # Сохраняем пару вопрос-ответ для разрешения follow-up в planner
+                    await db.save_last_exchange(user_id, user_query, cleaned)
                 else:
                     logger.warning("Пустой ответ после clean_response (user_id=%s), сообщение не отправлено", user_id)
             except Exception as e:

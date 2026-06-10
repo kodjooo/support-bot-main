@@ -398,6 +398,60 @@ async def test_partial_context_is_passed_to_assistant():
 
 
 @pytest.mark.asyncio
+async def test_recent_dialogue_passed_to_planner_and_saved():
+    """Follow-up: при живой цепочке planner получает recent_dialogue, а после ответа пара сохраняется."""
+    await _seed("16", ["а заказы в пути там учитываются?"], [])
+    await db.save_last_response_id("16", "resp_prev")
+    await db.save_last_exchange("16", "как считается выкупаемость?", "Выкупаемость = выкупленные/завершённые...")
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan("выкупаемость заказы в пути учитываются")
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
+        mock_ai.return_value = ("В выкупаемости заказы в пути не учитываются.", False, "resp_16")
+        await process_and_reply(bot, "16")
+
+    recent = mock_plan.call_args.kwargs["recent"]
+    assert recent == {
+        "last_user_text": "как считается выкупаемость?",
+        "last_bot_answer": "Выкупаемость = выкупленные/завершённые...",
+    }
+    record = await db.get_user("16")
+    assert record.last_user_text == "а заказы в пути там учитываются?"
+    assert record.last_bot_answer == "В выкупаемости заказы в пути не учитываются."
+
+
+@pytest.mark.asyncio
+async def test_recent_dialogue_not_passed_without_active_chain():
+    """Без last_response_id прошлая пара не передаётся (цепочка сброшена)."""
+    await _seed("17", ["новый вопрос"], [])
+    await db.save_last_exchange("17", "старый вопрос", "старый ответ")
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan()
+        mock_vector.return_value = [_chunk()]
+        mock_rerank.return_value = _rerank()
+        mock_ai.return_value = ("ответ", False, "resp_17")
+        await process_and_reply(bot, "17")
+
+    assert mock_plan.call_args.kwargs["recent"] is None
+
+
+@pytest.mark.asyncio
 async def test_conversational_reply_skips_rag():
     """Разговорная реплика идёт прямо к ассистенту без поиска и без контекста."""
     await _seed("15", ["спасибо"], [])

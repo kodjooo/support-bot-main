@@ -18,6 +18,8 @@ class UserRecord:
     texts: list[str]
     image_ids: list[str]
     last_update: int
+    last_user_text: str | None = None  # текст предыдущего вопроса пользователя (для follow-up)
+    last_bot_answer: str | None = None  # текст предыдущего ответа бота (для follow-up)
 
 
 _db_path: str = settings.database_path
@@ -43,6 +45,10 @@ async def init() -> None:
             columns = {row[1] for row in await cursor.fetchall()}
         if "pending_clarification_json" not in columns:
             await db.execute("ALTER TABLE users ADD COLUMN pending_clarification_json TEXT")
+        if "last_user_text" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN last_user_text TEXT")
+        if "last_bot_answer" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN last_bot_answer TEXT")
         await db.commit()
 
 
@@ -67,6 +73,8 @@ async def get_user(user_id: str) -> UserRecord | None:
         texts=json.loads(row["texts_json"] or "[]"),
         image_ids=json.loads(row["image_ids_json"] or "[]"),
         last_update=row["last_update"] or 0,
+        last_user_text=row["last_user_text"],
+        last_bot_answer=row["last_bot_answer"],
     )
 
 
@@ -109,6 +117,16 @@ async def save_last_response_id(user_id: str, last_response_id: str | None) -> N
         await db.execute(
             "UPDATE users SET last_response_id = ? WHERE user_id = ?",
             (last_response_id, user_id),
+        )
+        await db.commit()
+
+
+async def save_last_exchange(user_id: str, user_text: str, bot_answer: str) -> None:
+    """Сохраняет последнюю пару вопрос-ответ для разрешения follow-up в planner."""
+    async with aiosqlite.connect(_db_path) as db:
+        await db.execute(
+            "UPDATE users SET last_user_text = ?, last_bot_answer = ? WHERE user_id = ?",
+            (user_text, bot_answer, user_id),
         )
         await db.commit()
 
