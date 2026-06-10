@@ -10,5 +10,9 @@ support-bot/.claude/
 vector-base/.claude/
 vector-base/.cursor/
 vector-base/chroma_data/
+vector-base/artifacts/dashboard_rewrite/
+vector-base/artifacts/rag_corpus/rag_chunks.json
+vector-base/artifacts/rag_corpus/manifest.json
+vector-base/artifacts/rag_corpus/sources/
 vector-base/secrets/*.json
 !vector-base/secrets/.gitkeep
