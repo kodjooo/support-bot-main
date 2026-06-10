@@ -10,7 +10,7 @@ os.environ.setdefault("OPENAI_MODEL", "gpt-4o")
 os.environ.setdefault("OPERATOR_CHAT_ID", "0")
 os.environ.setdefault("OPERATOR_NAME", "test")
 
-from app.ai.reranker import rerank_context
+from app.ai.reranker import _RERANK_INSTRUCTIONS, rerank_context
 from app.ai.vector_client import ContextChunk
 
 
@@ -18,6 +18,12 @@ def _response(payload: dict):
     resp = MagicMock()
     resp.output_text = json.dumps(payload, ensure_ascii=False)
     return resp
+
+
+def test_reranker_instructions_separate_metrics():
+    assert "Строго разделяй метрики" in _RERANK_INSTRUCTIONS
+    assert "продажи, выплаты, реклама, прибыль и налоговая база" in _RERANK_INSTRUCTIONS
+    assert "не выбирай чанки про сумму выплат" in _RERANK_INSTRUCTIONS
 
 
 @pytest.mark.asyncio

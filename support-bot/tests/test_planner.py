@@ -10,13 +10,19 @@ os.environ.setdefault("OPENAI_MODEL", "gpt-4o")
 os.environ.setdefault("OPERATOR_CHAT_ID", "0")
 os.environ.setdefault("OPERATOR_NAME", "test")
 
-from app.ai.planner import plan_query
+from app.ai.planner import _PLANNER_INSTRUCTIONS, plan_query
 
 
 def _response(payload: dict):
     resp = MagicMock()
     resp.output_text = json.dumps(payload, ensure_ascii=False)
     return resp
+
+
+def test_planner_instructions_require_natural_search_query():
+    assert "естественной поисковой фразой" in _PLANNER_INSTRUCTIONS
+    assert "не key:value" in _PLANNER_INSTRUCTIONS
+    assert "не подменяй запрос суммой выплат" in _PLANNER_INSTRUCTIONS
 
 
 @pytest.mark.asyncio
