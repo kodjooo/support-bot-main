@@ -43,7 +43,8 @@ def test_planner_instructions_handle_smalltalk():
 
 def test_planner_instructions_clarify_marketplace_on_discrepancy():
     assert "не сходятся" in _PLANNER_INSTRUCTIONS
-    assert "С чем именно не сходятся данные — с Wildberries, с Ozon или с данными в Sellerdata?" in _PLANNER_INSTRUCTIONS
+    assert "Данные по какому маркетплейсу не сходятся — Wildberries или Ozon?" in _PLANNER_INSTRUCTIONS
+    assert "НЕ предлагай \"Sellerdata\" как сторону расхождения" in _PLANNER_INSTRUCTIONS
     assert "Не подставляй маркетплейс по умолчанию" in _PLANNER_INSTRUCTIONS
 
 
