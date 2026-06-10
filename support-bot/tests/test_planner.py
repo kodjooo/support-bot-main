@@ -32,6 +32,8 @@ def test_planner_instructions_use_real_ambiguity_axes():
     assert "резерв денежных средств или резерв товара" in _PLANNER_INSTRUCTIONS
     assert "Не придумывай варианты" in _PLANNER_INSTRUCTIONS
     assert "Реальные оси уточнений" in _PLANNER_INSTRUCTIONS
+    assert "Не перечисляй все разделы подряд" in _PLANNER_INSTRUCTIONS
+    assert "валовая/чистая прибыль в Дашборде или потенциальная прибыль в Складе" in _PLANNER_INSTRUCTIONS
 
 
 @pytest.mark.asyncio
