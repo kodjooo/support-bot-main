@@ -24,6 +24,7 @@ def test_reranker_instructions_separate_metrics():
     assert "Строго разделяй метрики" in _RERANK_INSTRUCTIONS
     assert "продажи, выплаты, реклама, прибыль и налоговая база" in _RERANK_INSTRUCTIONS
     assert "не выбирай чанки про сумму выплат" in _RERANK_INSTRUCTIONS
+    assert "1-2 самых прямых чанка" in _RERANK_INSTRUCTIONS
 
 
 @pytest.mark.asyncio
@@ -56,7 +57,7 @@ async def test_reranker_selects_valid_indices():
 async def test_reranker_can_reject_context():
     payload = {
         "enough_context": False,
-        "selected_indices": [],
+        "selected_indices": [0],
         "reason": "Нет подходящего контекста",
     }
     with patch("app.ai.reranker._client") as mock_client:
