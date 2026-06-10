@@ -36,6 +36,35 @@ def test_planner_instructions_use_real_ambiguity_axes():
     assert "валовая/чистая прибыль в Дашборде или потенциальная прибыль в Складе" in _PLANNER_INSTRUCTIONS
 
 
+def test_planner_instructions_handle_smalltalk():
+    assert "Разговорные реплики" in _PLANNER_INSTRUCTIONS
+    assert "пустым search_query" in _PLANNER_INSTRUCTIONS
+
+
+@pytest.mark.asyncio
+async def test_planner_conversational_reply():
+    """Разговорная реплика: ready + пустой search_query → is_conversational, не is_ready."""
+    payload = {
+        "status": "ready",
+        "clarifying_question": None,
+        "search_query": None,
+        "extracted": {
+            "marketplace": None,
+            "section": None,
+            "metric": None,
+            "period": None,
+            "problem": None,
+        },
+        "confidence": 0.9,
+    }
+    with patch("app.ai.planner._client") as mock_client:
+        mock_client.responses.create = AsyncMock(return_value=_response(payload))
+        result = await plan_query(["спасибо"])
+
+    assert result.is_conversational is True
+    assert result.is_ready is False
+
+
 @pytest.mark.asyncio
 async def test_planner_returns_need_clarification():
     payload = {

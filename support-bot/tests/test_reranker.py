@@ -56,11 +56,31 @@ async def test_reranker_selects_valid_indices():
 
 
 @pytest.mark.asyncio
-async def test_reranker_can_reject_context():
+async def test_reranker_keeps_partial_context_when_not_enough():
+    """Мягкий режим: при enough_context=false частично релевантные чанки сохраняются."""
     payload = {
         "enough_context": False,
         "selected_indices": [0],
-        "reason": "Нет подходящего контекста",
+        "reason": "Чанк по теме, но ответ неполный",
+    }
+    with patch("app.ai.reranker._client") as mock_client:
+        mock_client.responses.create = AsyncMock(return_value=_response(payload))
+        result = await rerank_context(
+            user_query="вопрос",
+            search_query="точный запрос",
+            chunks=[ContextChunk(text="частично релевантно")],
+        )
+
+    assert result.enough_context is False
+    assert result.selected_indices == [0]
+
+
+@pytest.mark.asyncio
+async def test_reranker_empty_selection_when_no_relevant_chunks():
+    payload = {
+        "enough_context": False,
+        "selected_indices": [],
+        "reason": "Ни один чанк не относится к теме",
     }
     with patch("app.ai.reranker._client") as mock_client:
         mock_client.responses.create = AsyncMock(return_value=_response(payload))

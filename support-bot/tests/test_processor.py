@@ -352,6 +352,7 @@ async def test_reranker_selected_chunks_are_sent_to_assistant():
 
 @pytest.mark.asyncio
 async def test_transfers_when_reranker_rejects_context():
+    """Reranker не нашёл ни одного тематического чанка (selected пустой) → оператор."""
     await _seed("13", ["конкретный вопрос"], [])
     bot = MagicMock()
     bot.get_file = AsyncMock()
@@ -363,8 +364,80 @@ async def test_transfers_when_reranker_rejects_context():
             patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
         mock_plan.return_value = _ready_plan()
         mock_vector.return_value = [_chunk()]
-        mock_rerank.return_value = _rerank([], enough=False)
+        mock_rerank.return_value = RerankResult(enough_context=False, selected_indices=[], reason="нет темы")
         await process_and_reply(bot, "13")
 
     mock_ai.assert_not_called()
     assert bot.send_message.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_partial_context_is_passed_to_assistant():
+    """Мягкий режим: enough_context=false, но есть чанки → ассистент получает частичный контекст."""
+    await _seed("14", ["как отменить подписку"], [])
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = _ready_plan("отмена подписки Настройки тарифы")
+        mock_vector.return_value = [_chunk("про оплату и тарифы")]
+        mock_rerank.return_value = _rerank([0], enough=False)
+        mock_ai.return_value = ("частичный ответ", False, "resp_14")
+        await process_and_reply(bot, "14")
+
+    mock_ai.assert_called_once()
+    context = mock_ai.call_args.kwargs["texts"][0]
+    assert "частичный" in context
+    assert "про оплату и тарифы" in context
+    bot.send_message.assert_called_once_with(chat_id="14", text="частичный ответ")
+
+
+@pytest.mark.asyncio
+async def test_conversational_reply_skips_rag():
+    """Разговорная реплика идёт прямо к ассистенту без поиска и без контекста."""
+    await _seed("15", ["спасибо"], [])
+    await db.save_last_response_id("15", "resp_prev")
+    await db.save_pending_clarification(
+        "15",
+        {
+            "original_texts": ["прошлый вопрос"],
+            "original_image_ids": [],
+            "attempts": 1,
+            "last_question": "Где?",
+            "created_at": int(time.time()),
+        },
+    )
+    bot = MagicMock()
+    bot.get_file = AsyncMock()
+    bot.send_chat_action = AsyncMock()
+    bot.send_message = AsyncMock()
+
+    conversational = PlanningResult(
+        status="ready",
+        clarifying_question=None,
+        search_query=None,
+        extracted={"marketplace": None, "section": None, "metric": None, "period": None, "problem": None},
+        confidence=0.9,
+    )
+
+    with patch("app.ai.planner.plan_query", new_callable=AsyncMock) as mock_plan, \
+            patch("app.ai.vector_client.fetch_context", new_callable=AsyncMock) as mock_vector, \
+            patch("app.ai.reranker.rerank_context", new_callable=AsyncMock) as mock_rerank, \
+            patch("app.ai.assistant.call_assistant", new_callable=AsyncMock) as mock_ai:
+        mock_plan.return_value = conversational
+        mock_ai.return_value = ("Пожалуйста!", False, "resp_15")
+        await process_and_reply(bot, "15")
+
+    mock_vector.assert_not_called()
+    mock_rerank.assert_not_called()
+    mock_ai.assert_called_once()
+    # Ассистент получает только текст пользователя без RAG-префикса
+    assert mock_ai.call_args.kwargs["texts"] == ["спасибо"]
+    bot.send_message.assert_called_once_with(chat_id="15", text="Пожалуйста!")
+    record = await db.get_user("15")
+    assert record.pending_clarification is None

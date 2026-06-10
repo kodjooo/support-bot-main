@@ -105,90 +105,113 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
             await debounce.debounce(user_id, bot)
             return
 
-        needs_clarification = (
-            not planning.is_ready
-            or planning.confidence < settings.rag_planner_confidence_threshold
-        )
-        if needs_clarification:
-            attempts = int((pending or {}).get("attempts") or 0)
-            if attempts >= settings.rag_max_clarifications:
-                logger.info("Достигнут лимит уточнений (user_id=%s)", user_id)
+        # Разговорная реплика (приветствие, благодарность, подтверждение):
+        # поиск в базе знаний не нужен, отвечает финальный ассистент в контексте диалога.
+        # pending не сохраняем и сбрасываем — чтобы реплика не подмешивалась в следующий вопрос.
+        if planning.is_conversational:
+            logger.info("Разговорная реплика, пропускаем RAG (user_id=%s)", user_id)
+            await db.clear_pending_clarification(user_id)
+            # Только новое сообщение пользователя — не подмешиваем незавершённое
+            # pending-уточнение, чтобы разговорная реплика не тянула старый вопрос.
+            texts = record.texts
+        else:
+            needs_clarification = (
+                not planning.is_ready
+                or planning.confidence < settings.rag_planner_confidence_threshold
+            )
+            if needs_clarification:
+                attempts = int((pending or {}).get("attempts") or 0)
+                if attempts >= settings.rag_max_clarifications:
+                    logger.info("Достигнут лимит уточнений (user_id=%s)", user_id)
+                    await db.save_last_response_id(user_id, None)
+                    await db.clear_pending_clarification(user_id)
+                    await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
+                    await db.clear_buffer(user_id)
+                    return
+
+                question = (
+                    planning.clarifying_question
+                    or "Уточните, пожалуйста, о каком разделе, маркетплейсе или показателе идёт речь?"
+                )
+                await db.save_pending_clarification(
+                    user_id,
+                    {
+                        "original_texts": effective_texts,
+                        "original_image_ids": effective_image_ids,
+                        "attempts": attempts + 1,
+                        "last_question": question,
+                        "created_at": int(time.time()),
+                    },
+                )
+                try:
+                    await bot.send_message(chat_id=user_id, text=question)
+                except Exception as e:
+                    logger.error("Ошибка отправки уточняющего вопроса (user_id=%s): %s", user_id, e)
+                finally:
+                    await db.consume_buffer(user_id, record.texts, record.image_ids)
+                return
+
+            await db.clear_pending_clarification(user_id)
+
+            search_query = planning.search_query or user_query
+            context_chunks = await fetch_context(search_query, top_k=settings.rag_search_top_k)
+            if not context_chunks:
                 await db.save_last_response_id(user_id, None)
-                await db.clear_pending_clarification(user_id)
                 await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
                 await db.clear_buffer(user_id)
                 return
 
-            question = (
-                planning.clarifying_question
-                or "Уточните, пожалуйста, о каком разделе, маркетплейсе или показателе идёт речь?"
-            )
-            await db.save_pending_clarification(
-                user_id,
-                {
-                    "original_texts": effective_texts,
-                    "original_image_ids": effective_image_ids,
-                    "attempts": attempts + 1,
-                    "last_question": question,
-                    "created_at": int(time.time()),
-                },
-            )
             try:
-                await bot.send_message(chat_id=user_id, text=question)
+                rerank = await asyncio.wait_for(
+                    rerank_context(
+                        user_query=user_query,
+                        search_query=search_query,
+                        chunks=context_chunks,
+                    ),
+                    timeout=settings.openai_run_timeout,
+                )
             except Exception as e:
-                logger.error("Ошибка отправки уточняющего вопроса (user_id=%s): %s", user_id, e)
-            finally:
-                await db.consume_buffer(user_id, record.texts, record.image_ids)
-            return
+                logger.error("Ошибка rerank OpenAI (user_id=%s): %s", user_id, e, exc_info=True)
+                await db.save_last_response_id(user_id, None)
+                await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
+                await db.clear_buffer(user_id)
+                return
 
-        await db.clear_pending_clarification(user_id)
+            if await _has_new_buffer_items(user_id, record.texts, record.image_ids):
+                logger.info("Rerank обработал устаревший снимок, запускаем повторно (user_id=%s)", user_id)
+                from app.bot import debounce
+                await debounce.debounce(user_id, bot)
+                return
 
-        search_query = planning.search_query or user_query
-        context_chunks = await fetch_context(search_query, top_k=settings.rag_search_top_k)
-        if not context_chunks:
-            await db.save_last_response_id(user_id, None)
-            await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
-            await db.clear_buffer(user_id)
-            return
+            selected_chunks = [context_chunks[index] for index in rerank.selected_indices]
+            # Контекста нет совсем (reranker не нашёл ни одного тематического чанка) — оператор.
+            if not selected_chunks:
+                await db.save_last_response_id(user_id, None)
+                await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
+                await db.clear_buffer(user_id)
+                return
 
-        try:
-            rerank = await asyncio.wait_for(
-                rerank_context(
-                    user_query=user_query,
-                    search_query=search_query,
-                    chunks=context_chunks,
-                ),
-                timeout=settings.openai_run_timeout,
-            )
-        except Exception as e:
-            logger.error("Ошибка rerank OpenAI (user_id=%s): %s", user_id, e, exc_info=True)
-            await db.save_last_response_id(user_id, None)
-            await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
-            await db.clear_buffer(user_id)
-            return
-
-        if await _has_new_buffer_items(user_id, record.texts, record.image_ids):
-            logger.info("Rerank обработал устаревший снимок, запускаем повторно (user_id=%s)", user_id)
-            from app.bot import debounce
-            await debounce.debounce(user_id, bot)
-            return
-
-        selected_chunks = [context_chunks[index] for index in rerank.selected_indices]
-        if not rerank.enough_context or not selected_chunks:
-            await db.save_last_response_id(user_id, None)
-            await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
-            await db.clear_buffer(user_id)
-            return
-
-        context_prefix = (
-            "Контекст из базы знаний уже отобран внутренним RAG pipeline. "
-            "Отвечай только по этим фрагментам. "
-            "Не смешивай фрагменты из разных разделов, если они не отвечают на один и тот же вопрос. "
-            "Не добавляй варианты, шаги или места интерфейса, которых нет в контексте. "
-            "Если контекст не подтверждает ответ, вызови transfer_to_operator.\n"
-            + "\n\n".join(chunk.to_prompt_text() for chunk in selected_chunks)
-        )
-        texts = [context_prefix] + effective_texts
+            # Мягкий режим: при enough_context=false контекст частичный — передаём его
+            # ассистенту с пометкой, а решение "звать оператора" принимает он сам
+            # через transfer_to_operator, если фрагментов реально не хватает для ответа.
+            if rerank.enough_context:
+                context_prefix = (
+                    "Контекст из базы знаний уже отобран внутренним RAG pipeline. "
+                    "Отвечай только по этим фрагментам. "
+                    "Не смешивай фрагменты из разных разделов, если они не отвечают на один и тот же вопрос. "
+                    "Не добавляй варианты, шаги или места интерфейса, которых нет в контексте. "
+                    "Если контекст не подтверждает ответ, вызови transfer_to_operator.\n"
+                )
+            else:
+                context_prefix = (
+                    "Контекст из базы знаний отобран внутренним RAG pipeline, но он частичный — "
+                    "прямого исчерпывающего ответа в нём может не быть. "
+                    "Отвечай только по этим фрагментам и только в той части, которую они покрывают. "
+                    "Не придумывай шаги, варианты или места интерфейса, которых нет в контексте. "
+                    "Если фрагменты не дают ответа на вопрос пользователя, вызови transfer_to_operator.\n"
+                )
+            context_prefix += "\n\n".join(chunk.to_prompt_text() for chunk in selected_chunks)
+            texts = [context_prefix] + effective_texts
 
         # Индикатор "бот печатает..."
         stop_event = asyncio.Event()
