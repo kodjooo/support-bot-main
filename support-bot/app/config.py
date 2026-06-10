@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     # Telegram
     telegram_bot_token: str
+    telegram_proxy_url: str | None = None  # HTTP/SOCKS-прокси для Telegram API; пусто = без прокси
 
     # OpenAI
     openai_api_key: str

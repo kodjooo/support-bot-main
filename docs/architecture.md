@@ -71,7 +71,9 @@
 
 OpenAI вызывается через Responses API. Для продолжения диалога используется `last_response_id`, сохранённый в SQLite. При function call `transfer_to_operator`, ошибке API или таймауте `OPENAI_RUN_TIMEOUT` бот сбрасывает `last_response_id`, уведомляет пользователя и отправляет сообщение оператору. Рабочий таймаут ожидания OpenAI задан в конфигурации как 300 секунд, чтобы длинные ответы модели не переводились оператору слишком рано.
 
-Все OpenAI-запросы бота создаются через `support-bot/app/ai/openai_client.py`. Если в `.env` задан `OPENAI_PROXY_URL`, Responses API использует этот HTTP/HTTPS-прокси. Если переменная пустая, клиент работает через обычную сеть.
+Все OpenAI-запросы бота создаются через `support-bot/app/ai/openai_client.py`. Если в `.env` задан `OPENAI_PROXY_URL`, Responses API использует этот HTTP/HTTPS/SOCKS5-прокси. Если переменная пустая, клиент работает через обычную сеть.
+
+Telegram long polling создаётся в `support-bot/app/main.py`. Если задан `TELEGRAM_PROXY_URL`, aiogram использует этот HTTP/HTTPS/SOCKS5-прокси для Telegram API. Это нужно на серверах, где `api.telegram.org` недоступен напрямую.
 
 ### `vector-base`
 
@@ -189,6 +191,7 @@ localhost:${VECTOR_BASE_PUBLISHED_PORT:-8080} -> vector-base:8080
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `OPENAI_PROXY_URL`
+- `TELEGRAM_PROXY_URL`
 - `OPERATOR_CHAT_ID`
 - `VECTOR_BASE_URL`
 - `VECTOR_BASE_PUBLISHED_PORT`

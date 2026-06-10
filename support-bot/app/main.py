@@ -25,7 +25,11 @@ async def main() -> None:
 
     await db.init()
 
-    session = AiohttpSession(timeout=_SESSION_TIMEOUT)
+    proxy_url = (settings.telegram_proxy_url or "").strip()
+    session = AiohttpSession(
+        timeout=_SESSION_TIMEOUT,
+        proxy=proxy_url or None,
+    )
     bot = Bot(token=settings.telegram_bot_token, session=session)
     dp = Dispatcher()
     dp.include_router(router)

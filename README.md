@@ -140,10 +140,16 @@ vector-base/secrets/google_service_account.json
 Если OpenAI должен ходить через локальный прокси на Docker-хосте, укажите:
 
 ```env
-OPENAI_PROXY_URL=http://host.docker.internal:8080
+OPENAI_PROXY_URL=socks5://host.docker.internal:8080
 ```
 
-`127.0.0.1:8080` внутри контейнера указывает на сам контейнер. Для прокси, запущенного на сервере или локальном компьютере рядом с Docker, используйте `host.docker.internal`; в `docker-compose.yml` добавлен `host-gateway` для Linux.
+Если Telegram API тоже недоступен напрямую с сервера, укажите:
+
+```env
+TELEGRAM_PROXY_URL=socks5://host.docker.internal:8080
+```
+
+`127.0.0.1:8080` внутри контейнера указывает на сам контейнер. Для прокси, запущенного на сервере или локальном компьютере рядом с Docker, используйте `host.docker.internal`; в `docker-compose.yml` добавлен `host-gateway` для Linux. Для SSH dynamic forwarding (`ssh -D 127.0.0.1:8080 ...`) используйте схему `socks5://`.
 
 Запуск:
 

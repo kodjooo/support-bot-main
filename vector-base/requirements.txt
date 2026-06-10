@@ -8,6 +8,7 @@ google-auth-httplib2==0.2.0
 tenacity==8.3.0
 chromadb>=0.6.0
 openai>=1.57.0
+httpx[socks]>=0.27
 fastapi==0.115.0
 uvicorn==0.30.6
 apscheduler==3.10.4
