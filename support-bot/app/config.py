@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     rag_search_top_k: int = 10
     rag_rerank_keep: int = 3
     rag_planner_confidence_threshold: float = 0.65
+    # Сколько последних содержательных пар вопрос-ответ держать для follow-up
+    rag_history_max_pairs: int = 3
+    # До скольки символов обрезать сохранённый ответ бота в истории
+    rag_history_answer_chars: int = 400
 
 
 settings = Settings()

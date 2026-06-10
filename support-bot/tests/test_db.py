@@ -12,6 +12,7 @@ os.environ.setdefault("OPERATOR_NAME", "test")
 os.environ.setdefault("DATABASE_PATH", "/tmp/test_chatbot.db")
 
 import app.storage.db as db
+from app.config import settings
 
 db._db_path = "/tmp/test_chatbot.db"
 
@@ -63,16 +64,37 @@ async def test_save_last_response_id():
 
 
 @pytest.mark.asyncio
-async def test_save_last_exchange_roundtrip():
+async def test_append_exchange_rolling_window():
     now = int(time.time())
     await db.upsert_user("33", "X", "Y", [], [], now)
     record = await db.get_user("33")
-    assert record.last_user_text is None
-    assert record.last_bot_answer is None
-    await db.save_last_exchange("33", "как считается выкупаемость?", "Выкупаемость = ...")
+    assert record.recent_exchanges == []
+
+    await db.append_exchange("33", "вопрос1", "ответ1")
+    await db.append_exchange("33", "вопрос2", "ответ2")
     record = await db.get_user("33")
-    assert record.last_user_text == "как считается выкупаемость?"
-    assert record.last_bot_answer == "Выкупаемость = ..."
+    assert record.recent_exchanges == [
+        {"user": "вопрос1", "bot": "ответ1"},
+        {"user": "вопрос2", "bot": "ответ2"},
+    ]
+
+    # Не более RAG_HISTORY_MAX_PAIRS (по умолчанию 3) — старые вытесняются
+    await db.append_exchange("33", "вопрос3", "ответ3")
+    await db.append_exchange("33", "вопрос4", "ответ4")
+    record = await db.get_user("33")
+    assert len(record.recent_exchanges) == 3
+    assert record.recent_exchanges[0]["user"] == "вопрос2"
+    assert record.recent_exchanges[-1]["user"] == "вопрос4"
+
+
+@pytest.mark.asyncio
+async def test_append_exchange_truncates_answer():
+    now = int(time.time())
+    await db.upsert_user("34", "X", "Y", [], [], now)
+    long_answer = "д" * 1000
+    await db.append_exchange("34", "вопрос", long_answer)
+    record = await db.get_user("34")
+    assert len(record.recent_exchanges[-1]["bot"]) == settings.rag_history_answer_chars
 
 
 @pytest.mark.asyncio

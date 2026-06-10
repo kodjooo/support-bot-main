@@ -402,7 +402,7 @@ async def test_recent_dialogue_passed_to_planner_and_saved():
     """Follow-up: при живой цепочке planner получает recent_dialogue, а после ответа пара сохраняется."""
     await _seed("16", ["а заказы в пути там учитываются?"], [])
     await db.save_last_response_id("16", "resp_prev")
-    await db.save_last_exchange("16", "как считается выкупаемость?", "Выкупаемость = выкупленные/завершённые...")
+    await db.append_exchange("16", "как считается выкупаемость?", "Выкупаемость = выкупленные/завершённые...")
     bot = MagicMock()
     bot.get_file = AsyncMock()
     bot.send_chat_action = AsyncMock()
@@ -419,20 +419,23 @@ async def test_recent_dialogue_passed_to_planner_and_saved():
         await process_and_reply(bot, "16")
 
     recent = mock_plan.call_args.kwargs["recent"]
-    assert recent == {
-        "last_user_text": "как считается выкупаемость?",
-        "last_bot_answer": "Выкупаемость = выкупленные/завершённые...",
-    }
+    assert recent == [
+        {"user": "как считается выкупаемость?", "bot": "Выкупаемость = выкупленные/завершённые..."},
+    ]
     record = await db.get_user("16")
-    assert record.last_user_text == "а заказы в пути там учитываются?"
-    assert record.last_bot_answer == "В выкупаемости заказы в пути не учитываются."
+    # После RAG-ответа в историю добавилась новая пара (стало две)
+    assert record.recent_exchanges[-1] == {
+        "user": "а заказы в пути там учитываются?",
+        "bot": "В выкупаемости заказы в пути не учитываются.",
+    }
+    assert len(record.recent_exchanges) == 2
 
 
 @pytest.mark.asyncio
 async def test_recent_dialogue_not_passed_without_active_chain():
     """Без last_response_id прошлая пара не передаётся (цепочка сброшена)."""
     await _seed("17", ["новый вопрос"], [])
-    await db.save_last_exchange("17", "старый вопрос", "старый ответ")
+    await db.append_exchange("17", "старый вопрос", "старый ответ")
     bot = MagicMock()
     bot.get_file = AsyncMock()
     bot.send_chat_action = AsyncMock()
@@ -495,3 +498,5 @@ async def test_conversational_reply_skips_rag():
     bot.send_message.assert_called_once_with(chat_id="15", text="Пожалуйста!")
     record = await db.get_user("15")
     assert record.pending_clarification is None
+    # Разговорная реплика не попадает в историю follow-up
+    assert record.recent_exchanges == []

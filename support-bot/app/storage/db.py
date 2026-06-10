@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import aiosqlite
 
@@ -18,8 +18,8 @@ class UserRecord:
     texts: list[str]
     image_ids: list[str]
     last_update: int
-    last_user_text: str | None = None  # текст предыдущего вопроса пользователя (для follow-up)
-    last_bot_answer: str | None = None  # текст предыдущего ответа бота (для follow-up)
+    # Последние содержательные пары [{"user": ..., "bot": ...}] для разрешения follow-up
+    recent_exchanges: list[dict] = field(default_factory=list)
 
 
 _db_path: str = settings.database_path
@@ -45,10 +45,8 @@ async def init() -> None:
             columns = {row[1] for row in await cursor.fetchall()}
         if "pending_clarification_json" not in columns:
             await db.execute("ALTER TABLE users ADD COLUMN pending_clarification_json TEXT")
-        if "last_user_text" not in columns:
-            await db.execute("ALTER TABLE users ADD COLUMN last_user_text TEXT")
-        if "last_bot_answer" not in columns:
-            await db.execute("ALTER TABLE users ADD COLUMN last_bot_answer TEXT")
+        if "recent_exchanges_json" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN recent_exchanges_json TEXT")
         await db.commit()
 
 
@@ -73,8 +71,7 @@ async def get_user(user_id: str) -> UserRecord | None:
         texts=json.loads(row["texts_json"] or "[]"),
         image_ids=json.loads(row["image_ids_json"] or "[]"),
         last_update=row["last_update"] or 0,
-        last_user_text=row["last_user_text"],
-        last_bot_answer=row["last_bot_answer"],
+        recent_exchanges=json.loads(row["recent_exchanges_json"] or "[]"),
     )
 
 
@@ -121,12 +118,29 @@ async def save_last_response_id(user_id: str, last_response_id: str | None) -> N
         await db.commit()
 
 
-async def save_last_exchange(user_id: str, user_text: str, bot_answer: str) -> None:
-    """Сохраняет последнюю пару вопрос-ответ для разрешения follow-up в planner."""
+async def append_exchange(user_id: str, user_text: str, bot_answer: str) -> None:
+    """Добавляет содержательную пару вопрос-ответ в скользящее окно истории.
+
+    Хранится не более RAG_HISTORY_MAX_PAIRS последних пар; ответ бота
+    обрезается до RAG_HISTORY_ANSWER_CHARS символов, чтобы не раздувать
+    ввод planner. Самая свежая пара — последняя в списке.
+    """
+    max_pairs = max(1, settings.rag_history_max_pairs)
+    max_chars = max(1, settings.rag_history_answer_chars)
     async with aiosqlite.connect(_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT recent_exchanges_json FROM users WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return
+        history: list[dict] = json.loads(row["recent_exchanges_json"] or "[]")
+        history.append({"user": user_text, "bot": (bot_answer or "")[:max_chars]})
+        history = history[-max_pairs:]
         await db.execute(
-            "UPDATE users SET last_user_text = ?, last_bot_answer = ? WHERE user_id = ?",
-            (user_text, bot_answer, user_id),
+            "UPDATE users SET recent_exchanges_json = ? WHERE user_id = ?",
+            (json.dumps(history, ensure_ascii=False), user_id),
         )
         await db.commit()
 

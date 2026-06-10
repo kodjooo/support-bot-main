@@ -86,15 +86,12 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
         user_query = "\n".join(effective_texts)
         logger.info("[USER] user_id=%s сообщение: %s", user_id, user_query[:500])
 
-        # Недавний диалог для разрешения follow-up. Передаём только при живой
-        # цепочке (last_response_id есть): после перевода на оператора или с нуля
-        # цепочка сброшена и прошлая пара уже неактуальна как контекст.
+        # Недавний диалог для разрешения follow-up — последние содержательные пары.
+        # Передаём только при живой цепочке (last_response_id есть): после перевода
+        # на оператора или с нуля цепочка сброшена и история уже неактуальна.
         recent = None
-        if record.last_response_id and record.last_user_text and record.last_bot_answer:
-            recent = {
-                "last_user_text": record.last_user_text,
-                "last_bot_answer": record.last_bot_answer,
-            }
+        if record.last_response_id and record.recent_exchanges:
+            recent = record.recent_exchanges
 
         try:
             planning = await asyncio.wait_for(
@@ -118,6 +115,11 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
         # Разговорная реплика (приветствие, благодарность, подтверждение):
         # поиск в базе знаний не нужен, отвечает финальный ассистент в контексте диалога.
         # pending не сохраняем и сбрасываем — чтобы реплика не подмешивалась в следующий вопрос.
+        # В историю follow-up сохраняем только содержательные (RAG-обоснованные)
+        # ответы. Разговорные реплики и уточнения из памяти в окно не попадают,
+        # поэтому "ок"/"спасибо" не вытесняют последнюю реальную тему.
+        store_history = not planning.is_conversational
+
         if planning.is_conversational:
             logger.info("Разговорная реплика, пропускаем RAG (user_id=%s)", user_id)
             await db.clear_pending_clarification(user_id)
@@ -295,8 +297,9 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
             try:
                 if cleaned:
                     await bot.send_message(chat_id=user_id, text=cleaned)
-                    # Сохраняем пару вопрос-ответ для разрешения follow-up в planner
-                    await db.save_last_exchange(user_id, user_query, cleaned)
+                    # Сохраняем пару в историю follow-up только для RAG-ответов
+                    if store_history:
+                        await db.append_exchange(user_id, user_query, cleaned)
                 else:
                     logger.warning("Пустой ответ после clean_response (user_id=%s), сообщение не отправлено", user_id)
             except Exception as e:
