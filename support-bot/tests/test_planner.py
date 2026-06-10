@@ -23,6 +23,15 @@ def test_planner_instructions_require_natural_search_query():
     assert "естественной поисковой фразой" in _PLANNER_INSTRUCTIONS
     assert "не key:value" in _PLANNER_INSTRUCTIONS
     assert "не подменяй запрос суммой выплат" in _PLANNER_INSTRUCTIONS
+    assert "Sellerdata — это сервис, а не маркетплейс" in _PLANNER_INSTRUCTIONS
+    assert "Дашборд/Настройки/Расходы/Самовыкупы/Склад/Товары" in _PLANNER_INSTRUCTIONS
+    assert "что такое X" in _PLANNER_INSTRUCTIONS
+
+
+def test_planner_instructions_use_real_ambiguity_axes():
+    assert "резерв денежных средств или резерв товара" in _PLANNER_INSTRUCTIONS
+    assert "Не придумывай варианты" in _PLANNER_INSTRUCTIONS
+    assert "Реальные оси уточнений" in _PLANNER_INSTRUCTIONS
 
 
 @pytest.mark.asyncio
