@@ -77,7 +77,7 @@ Telegram long polling создаётся в `support-bot/app/main.py`. Если 
 
 Для Linux-серверов с SSH SOCKS-прокси, который слушает только `127.0.0.1`, в `docker-compose.yml` есть профиль `host-proxy-forwarder`. Он запускает `alpine/socat` в host network и пробрасывает `127.0.0.1:${HOST_PROXY_SOURCE_PORT:-8080}` на `0.0.0.0:${HOST_PROXY_FORWARD_PORT:-18080}`, после чего контейнеры используют `socks5://host.docker.internal:${HOST_PROXY_FORWARD_PORT}`.
 
-Если firewall сервера блокирует Docker-to-host bridge traffic, используется `docker-compose.host.yml`. Этот override переводит `bot`, `vector-base` и `chroma` в host network; тогда `OPENAI_PROXY_URL` и `TELEGRAM_PROXY_URL` указывают на `socks5://127.0.0.1:8080`, `CHROMA_HOST=127.0.0.1`, `VECTOR_BASE_URL=http://127.0.0.1:${API_PORT}`, а `API_PORT` должен отличаться от порта SOCKS-прокси.
+Если firewall сервера блокирует Docker-to-host bridge traffic, в том же `docker-compose.yml` используется профиль `host-network` с сервисами `bot-host`, `vector-base-host` и `chroma-host`. Эти сервисы работают в host network; тогда `OPENAI_PROXY_URL` и `TELEGRAM_PROXY_URL` указывают на `socks5://127.0.0.1:8080`, `CHROMA_HOST=127.0.0.1`, `VECTOR_BASE_URL=http://127.0.0.1:${API_PORT}`, а `API_PORT` должен отличаться от порта SOCKS-прокси.
 
 ### `vector-base`
 
@@ -165,7 +165,7 @@ localhost:${VECTOR_BASE_PUBLISHED_PORT:-8080} -> vector-base:8080
 
 Если этот прокси доступен только на loopback хоста, включается профиль `host-proxy-forwarder`; он не меняет Docker-сеть сервисов, а только делает локальный TCP-прокси хоста доступным контейнерам через `host.docker.internal`.
 
-На серверах, где доступ с Docker bridge к хостовым интерфейсам фильтруется, применяется `docker-compose.host.yml`; в таком режиме публикация портов не нужна, потому что сервисы слушают напрямую в network namespace хоста.
+На серверах, где доступ с Docker bridge к хостовым интерфейсам фильтруется, применяется профиль `host-network`; в таком режиме публикация портов не нужна, потому что сервисы слушают напрямую в network namespace хоста.
 
 `bot` не публикует порты, потому что работает через Telegram long polling.
 

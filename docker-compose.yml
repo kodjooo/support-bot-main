@@ -64,6 +64,48 @@ services:
     networks:
       - support-net
 
+  bot-host:
+    build:
+      context: ./support-bot
+    env_file:
+      - .env
+    volumes:
+      - bot_data:/app/data
+    depends_on:
+      vector-base-host:
+        condition: service_started
+    network_mode: host
+    profiles:
+      - host-network
+    restart: unless-stopped
+
+  vector-base-host:
+    build:
+      context: ./vector-base
+    command: python -m app.main
+    env_file:
+      - .env
+    volumes:
+      - ./vector-base/meta:/app/meta
+      - ./vector-base/artifacts:/app/artifacts:ro
+      - ./vector-base/secrets:/secrets:ro
+    depends_on:
+      chroma-host:
+        condition: service_started
+    network_mode: host
+    profiles:
+      - host-network
+    restart: unless-stopped
+
+  chroma-host:
+    image: ghcr.io/chroma-core/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+    network_mode: host
+    profiles:
+      - host-network
+    restart: unless-stopped
+
   host-proxy-forwarder:
     image: alpine/socat:latest
     command:
