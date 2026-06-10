@@ -41,6 +41,12 @@ def test_planner_instructions_handle_smalltalk():
     assert "пустым search_query" in _PLANNER_INSTRUCTIONS
 
 
+def test_planner_instructions_clarify_marketplace_on_discrepancy():
+    assert "не сходятся" in _PLANNER_INSTRUCTIONS
+    assert "С чем именно не сходятся данные — с Wildberries, с Ozon или с данными в Sellerdata?" in _PLANNER_INSTRUCTIONS
+    assert "Не подставляй маркетплейс по умолчанию" in _PLANNER_INSTRUCTIONS
+
+
 @pytest.mark.asyncio
 async def test_planner_conversational_reply():
     """Разговорная реплика: ready + пустой search_query → is_conversational, не is_ready."""
