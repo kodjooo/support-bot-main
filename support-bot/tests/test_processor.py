@@ -290,7 +290,7 @@ async def test_pending_answer_is_combined_and_search_uses_planned_query():
 
     mock_plan.assert_called_once()
     assert mock_plan.call_args.kwargs["pending"]["attempts"] == 1
-    mock_vector.assert_called_once_with("расхождение продаж WB в Дашборде", top_k=6)
+    mock_vector.assert_called_once_with("расхождение продаж WB в Дашборде", top_k=10)
     assistant_texts = mock_ai.call_args.kwargs["texts"]
     assert "у меня не сходятся продажи" in assistant_texts[-2]
     assert "в дашборде WB" in assistant_texts[-1]

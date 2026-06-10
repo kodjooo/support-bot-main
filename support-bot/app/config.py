@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # RAG pipeline
     rag_max_clarifications: int = 2
-    rag_search_top_k: int = 6
+    rag_search_top_k: int = 10
     rag_rerank_keep: int = 3
     rag_planner_confidence_threshold: float = 0.65
 

@@ -41,6 +41,11 @@ def test_planner_instructions_handle_smalltalk():
     assert "пустым search_query" in _PLANNER_INSTRUCTIONS
 
 
+def test_planner_instructions_keep_search_query_close_to_user():
+    assert "близок к формулировке пользователя" in _PLANNER_INSTRUCTIONS
+    assert "НЕ дописывай в search_query догадки" in _PLANNER_INSTRUCTIONS
+
+
 def test_planner_instructions_clarify_marketplace_on_discrepancy():
     assert "не сходятся" in _PLANNER_INSTRUCTIONS
     assert "Данные по какому маркетплейсу не сходятся — Wildberries или Ozon?" in _PLANNER_INSTRUCTIONS
