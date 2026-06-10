@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from chromadb.errors import NotFoundError
+
 from app.chroma_manager import SearchResult, VectorStoreGateway
 
 
@@ -51,6 +53,30 @@ class FakeClient:
         self.deleted_collections.append(name)
 
 
+class FlakyCollection(FakeCollection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_once = True
+
+    def query(self, query_embeddings, n_results):
+        if self.fail_once:
+            self.fail_once = False
+            raise NotFoundError("collection disappeared")
+        return super().query(query_embeddings, n_results)
+
+
+class RotatingClient(FakeClient):
+    def __init__(self):
+        super().__init__()
+        self.collections = [FlakyCollection(), FakeCollection()]
+
+    def get_or_create_collection(self, name):
+        self.calls[name] += 1
+        if len(self.collections) > 1:
+            return self.collections.pop(0)
+        return self.collections[0]
+
+
 class StubSettings:
     chroma_host = "chroma"
     chroma_port = 8000
@@ -94,6 +120,17 @@ def test_query_returns_payload():
     result = manager.query([0.3, 0.4], limit=2)
 
     assert "documents" in result
+    assert manager._get_collection().queries[0][1] == 2
+
+
+def test_query_refreshes_stale_collection():
+    client = RotatingClient()
+    manager = VectorStoreGateway(settings=StubSettings(), client=client)
+
+    result = manager.query([0.3, 0.4], limit=2)
+
+    assert "documents" in result
+    assert client.calls["knowledge"] == 2
     assert manager._get_collection().queries[0][1] == 2
 
 

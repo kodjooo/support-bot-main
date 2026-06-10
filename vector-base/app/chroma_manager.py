@@ -9,6 +9,7 @@ from typing import Iterable, List, Sequence
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.api.models.Collection import Collection
+from chromadb.errors import NotFoundError
 
 from app.config import Settings, get_settings
 
@@ -104,7 +105,12 @@ class VectorStoreGateway:
 
     def query(self, embedding: Sequence[float], *, limit: int = 3) -> dict:
         logger.debug("Поиск релевантных документов (limit=%s).", limit)
-        return self._get_collection().query(query_embeddings=[embedding], n_results=limit)
+        try:
+            return self._get_collection().query(query_embeddings=[embedding], n_results=limit)
+        except NotFoundError:
+            logger.warning("Cached Chroma collection устарела, получаем коллекцию заново.")
+            self._collection = None
+            return self._get_collection().query(query_embeddings=[embedding], n_results=limit)
 
     def search(
         self,
@@ -182,10 +188,18 @@ class VectorStoreGateway:
         return sorted(results, key=lambda item: item.score, reverse=True)
 
     def _keyword_candidates(self, *, keyword_limit: int) -> list[SearchResult]:
-        payload = self._get_collection().get(
-            include=["documents", "metadatas"],
-            limit=keyword_limit,
-        )
+        try:
+            payload = self._get_collection().get(
+                include=["documents", "metadatas"],
+                limit=keyword_limit,
+            )
+        except NotFoundError:
+            logger.warning("Cached Chroma collection устарела при keyword search, получаем коллекцию заново.")
+            self._collection = None
+            payload = self._get_collection().get(
+                include=["documents", "metadatas"],
+                limit=keyword_limit,
+            )
         documents = payload.get("documents") or []
         metadatas = payload.get("metadatas") or []
 

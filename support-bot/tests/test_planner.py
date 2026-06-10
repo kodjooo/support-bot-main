@@ -67,3 +67,28 @@ async def test_planner_returns_ready_search_query():
 
     assert result.is_ready is True
     assert result.search_query == "расхождение продаж Wildberries в Дашборде Sellerdata"
+
+
+@pytest.mark.asyncio
+async def test_planner_normalizes_structured_search_query():
+    payload = {
+        "status": "ready",
+        "clarifying_question": None,
+        "search_query": "marketplace: Wildberries; section: Дашборд; metric: Сумма продаж",
+        "extracted": {
+            "marketplace": "Wildberries",
+            "section": "Дашборд",
+            "metric": "Сумма продаж",
+            "period": "прошлая неделя",
+            "problem": "несовпадение с еженедельным отчетом",
+        },
+        "confidence": 0.9,
+    }
+    with patch("app.ai.planner._client") as mock_client:
+        mock_client.responses.create = AsyncMock(return_value=_response(payload))
+        result = await plan_query(["В Дашборде не сходятся продажи WB"])
+
+    assert ":" not in result.search_query
+    assert ";" not in result.search_query
+    assert "Wildberries" in result.search_query
+    assert "В Дашборде не сходятся продажи WB" in result.search_query

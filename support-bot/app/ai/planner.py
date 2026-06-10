@@ -89,7 +89,7 @@ async def plan_query(
     result = PlanningResult(
         status=data["status"],
         clarifying_question=data.get("clarifying_question"),
-        search_query=data.get("search_query"),
+        search_query=_normalize_search_query(data, user_texts),
         extracted=data.get("extracted") or {},
         confidence=float(data.get("confidence") or 0),
     )
@@ -101,3 +101,26 @@ async def plan_query(
         result.clarifying_question,
     )
     return result
+
+
+def _normalize_search_query(data: dict, user_texts: list[str]) -> str | None:
+    """Преобразует служебные key:value варианты модели в естественную поисковую фразу."""
+    query = (data.get("search_query") or "").strip()
+    if not query:
+        return None
+    if not any(marker in query for marker in (":", ";", "|")):
+        return query
+
+    extracted = data.get("extracted") or {}
+    parts = [
+        str(value).strip()
+        for key in ("marketplace", "section", "metric", "problem", "period")
+        for value in [extracted.get(key)]
+        if value and str(value).strip().lower() != "null"
+    ]
+    original = " ".join(text.strip() for text in user_texts if text.strip())
+    if original:
+        parts.append(original)
+    if parts:
+        return " ".join(dict.fromkeys(parts))
+    return query.replace(";", " ").replace("|", " ").replace(":", " ")
