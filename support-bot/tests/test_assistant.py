@@ -10,7 +10,7 @@ os.environ.setdefault("OPERATOR_CHAT_ID", "0")
 os.environ.setdefault("OPERATOR_NAME", "test")
 os.environ.setdefault("DATABASE_PATH", "/tmp/test.db")
 
-from app.ai.assistant import call_assistant
+from app.ai.assistant import OPERATOR_TOOLS, call_assistant
 
 
 def _make_response(status: str, output_text: str = "", tool_name: str | None = None):
@@ -33,6 +33,13 @@ def _make_response(status: str, output_text: str = "", tool_name: str | None = N
 
     resp.output = output_items
     return resp
+
+
+def test_operator_tool_does_not_escalate_direct_context():
+    description = OPERATOR_TOOLS[0]["description"]
+
+    assert "хотя бы один прямой фрагмент контекста" in description
+    assert "Не вызывай функцию" in description
 
 
 @pytest.mark.asyncio

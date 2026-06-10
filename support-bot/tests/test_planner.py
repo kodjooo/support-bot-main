@@ -53,13 +53,15 @@ async def test_planner_returns_need_clarification():
     }
     with patch("app.ai.planner._client") as mock_client:
         mock_client.responses.create = AsyncMock(return_value=_response(payload))
-        result = await plan_query(["у меня не сходятся продажи"])
+        with patch("app.ai.planner.settings.openai_reasoning_effort", "low"):
+            result = await plan_query(["у меня не сходятся продажи"])
 
     assert result.status == "need_clarification"
     assert result.clarifying_question == "Где именно не сходятся продажи?"
     assert result.is_ready is False
     call_kwargs = mock_client.responses.create.call_args.kwargs
     assert call_kwargs["text"]["format"]["type"] == "json_schema"
+    assert call_kwargs["reasoning"] == {"effort": "low"}
     assert "previous_response_id" not in call_kwargs
 
 

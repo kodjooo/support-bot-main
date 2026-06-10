@@ -73,11 +73,11 @@ async def rerank_context(
             for index, chunk in enumerate(chunks)
         ],
     }
-    response = await _client.responses.create(
-        model=settings.openai_rerank_model or settings.openai_model,
-        instructions=_RERANK_INSTRUCTIONS.strip(),
-        input=json.dumps(payload, ensure_ascii=False),
-        text={
+    params = {
+        "model": settings.openai_rerank_model or settings.openai_model,
+        "instructions": _RERANK_INSTRUCTIONS.strip(),
+        "input": json.dumps(payload, ensure_ascii=False),
+        "text": {
             "format": {
                 "type": "json_schema",
                 "name": "rag_rerank_result",
@@ -85,7 +85,10 @@ async def rerank_context(
                 "strict": True,
             },
         },
-    )
+    }
+    if settings.openai_reasoning_effort is not None:
+        params["reasoning"] = {"effort": settings.openai_reasoning_effort}
+    response = await _client.responses.create(**params)
     data = json.loads(response.output_text or "{}")
     selected = [
         index

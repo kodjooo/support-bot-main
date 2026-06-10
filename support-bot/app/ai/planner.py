@@ -92,11 +92,11 @@ async def plan_query(
         "current_user_texts": user_texts,
         "pending_clarification": pending,
     }
-    response = await _client.responses.create(
-        model=settings.openai_planner_model or settings.openai_model,
-        instructions=_PLANNER_INSTRUCTIONS.strip(),
-        input=json.dumps(payload, ensure_ascii=False),
-        text={
+    params = {
+        "model": settings.openai_planner_model or settings.openai_model,
+        "instructions": _PLANNER_INSTRUCTIONS.strip(),
+        "input": json.dumps(payload, ensure_ascii=False),
+        "text": {
             "format": {
                 "type": "json_schema",
                 "name": "rag_planning_result",
@@ -104,7 +104,10 @@ async def plan_query(
                 "strict": True,
             },
         },
-    )
+    }
+    if settings.openai_reasoning_effort is not None:
+        params["reasoning"] = {"effort": settings.openai_reasoning_effort}
+    response = await _client.responses.create(**params)
     data = json.loads(response.output_text or "{}")
     result = PlanningResult(
         status=data["status"],
