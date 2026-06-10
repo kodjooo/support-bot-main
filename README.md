@@ -151,6 +151,16 @@ TELEGRAM_PROXY_URL=socks5://host.docker.internal:8080
 
 `127.0.0.1:8080` внутри контейнера указывает на сам контейнер. Для прокси, запущенного на сервере или локальном компьютере рядом с Docker, используйте `host.docker.internal`; в `docker-compose.yml` добавлен `host-gateway` для Linux. Для SSH dynamic forwarding (`ssh -D 127.0.0.1:8080 ...`) используйте схему `socks5://`.
 
+Если Linux-серверный SOCKS-прокси слушает только `127.0.0.1`, контейнеры не смогут подключиться к нему напрямую через `host.docker.internal`. Включите compose-профиль forwarder:
+
+```env
+COMPOSE_PROFILES=host-proxy-forwarder
+HOST_PROXY_SOURCE_PORT=8080
+HOST_PROXY_FORWARD_PORT=18080
+OPENAI_PROXY_URL=socks5://host.docker.internal:18080
+TELEGRAM_PROXY_URL=socks5://host.docker.internal:18080
+```
+
 Запуск:
 
 ```bash

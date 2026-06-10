@@ -64,6 +64,16 @@ services:
     networks:
       - support-net
 
+  host-proxy-forwarder:
+    image: alpine/socat:latest
+    command:
+      - "TCP-LISTEN:${HOST_PROXY_FORWARD_PORT:-18080},fork,reuseaddr,bind=0.0.0.0"
+      - "TCP:127.0.0.1:${HOST_PROXY_SOURCE_PORT:-8080}"
+    network_mode: host
+    profiles:
+      - host-proxy-forwarder
+    restart: unless-stopped
+
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     volumes:
