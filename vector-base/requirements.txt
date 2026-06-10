@@ -1,0 +1,13 @@
+pydantic==2.7.4
+pydantic-settings==2.2.1
+python-dotenv==1.0.1
+pytest==8.2.1
+google-api-python-client==2.147.0
+google-auth==2.33.0
+google-auth-httplib2==0.2.0
+tenacity==8.3.0
+chromadb>=0.6.0
+openai>=1.57.0
+fastapi==0.115.0
+uvicorn==0.30.6
+apscheduler==3.10.4

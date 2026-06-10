@@ -1,0 +1,14 @@
+.env
+.DS_Store
+__pycache__/
+.pytest_cache/
+*.pyc
+
+support-bot/data/
+support-bot/secure/
+support-bot/.claude/
+vector-base/.claude/
+vector-base/.cursor/
+vector-base/chroma_data/
+vector-base/secrets/*.json
+!vector-base/secrets/.gitkeep

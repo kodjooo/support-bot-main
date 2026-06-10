@@ -1,0 +1,73 @@
+services:
+  bot:
+    build:
+      context: ./support-bot
+    env_file:
+      - .env
+    volumes:
+      - bot_data:/app/data
+    depends_on:
+      vector-base:
+        condition: service_started
+    networks:
+      - support-net
+    restart: unless-stopped
+
+  bot-tests:
+    build:
+      context: ./support-bot
+    env_file:
+      - .env
+    command: pytest
+    volumes:
+      - ./support-bot/tests:/app/tests:ro
+    profiles:
+      - test
+    networks:
+      - support-net
+
+  vector-base:
+    build:
+      context: ./vector-base
+    command: python -m app.main
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./vector-base/meta:/app/meta
+      - ./vector-base/artifacts:/app/artifacts:ro
+      - ./vector-base/secrets:/secrets:ro
+    depends_on:
+      chroma:
+        condition: service_started
+    networks:
+      - support-net
+    restart: unless-stopped
+
+  vector-base-tests:
+    build:
+      context: ./vector-base
+    env_file:
+      - .env
+    command: pytest
+    profiles:
+      - test
+    networks:
+      - support-net
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - support-net
+    restart: unless-stopped
+
+networks:
+  support-net:
+    driver: bridge
+
+volumes:
+  bot_data:
+  chroma_data:
