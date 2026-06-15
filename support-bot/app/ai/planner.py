@@ -70,6 +70,12 @@ _PLANNER_INSTRUCTIONS = """
 - Склад: остатки, склады, себестоимость, потенциальные продажи и прибыль, таблица товаров, скорость продаж, остаток в днях, промежуточный склад, закупка, срок заказа, ROI, уведомления об остатках.
 - Товары: карточки и фильтры товаров, особенности Wildberries, баркоды, себестоимость, типы себестоимости, даты изменения, загрузка Excel, ошибки загрузки, импорт себестоимости Ozon.
 
+Если приложен скриншот (has_screenshot=true и переданы изображения), ОБЯЗАТЕЛЬНО используй его как контекст:
+- Определи по экрану раздел Sellerdata, вкладку/таблицу и метрику, а также маркетплейс (по логотипу Wildberries/Ozon, составу сайдбара, подписям). Используй это, чтобы разрешить отсылки в тексте ("здесь", "это", "на этом экране", "почему расходятся данные") и построить точный search_query.
+- Если маркетплейс понятен с экрана, НЕ переспрашивай его (в т.ч. для вопросов про расхождение данных) — подставь его в search_query/extracted сам.
+- Если на скрине открыто конкретное окно/раздел, включи его в search_query (например "расхождение данных Wildberries сверка Дашборд").
+- Если текста почти нет, а есть только картинка с явным экраном — всё равно построй search_query по тому, что видно, вместо уточняющего вопроса.
+
 Разговорные реплики (приветствие, благодарность, прощание, короткое подтверждение вроде "спасибо", "ок", "понял", "ясно", "хорошо") не требуют поиска в базе знаний. Для них верни status=ready с пустым search_query (search_query=null) и clarifying_question=null — финальный ассистент ответит сам в контексте диалога. Не задавай уточняющий вопрос на благодарность или подтверждение.
 
 Во входных данных может быть recent_dialogue — список последних содержательных пар диалога вида {"user": вопрос пользователя, "bot": ответ бота}, где последняя пара самая свежая. Это контекст диалога — используй его, чтобы понять текущее сообщение:
@@ -106,21 +112,40 @@ async def plan_query(
     *,
     pending: dict | None = None,
     recent: list[dict] | None = None,
+    image_urls: list[str] | None = None,
 ) -> PlanningResult:
     """Планирует RAG-поиск или уточняющий вопрос. Stateless, без previous_response_id.
 
     recent — список последних содержательных пар [{"user": ..., "bot": ...}]
     (самая свежая последней) для разрешения follow-up.
+    image_urls — приложенные пользователем скриншоты: planner «видит» экран, чтобы
+    определить раздел/маркетплейс и построить точный search_query.
     """
     payload = {
         "current_user_texts": user_texts,
         "pending_clarification": pending,
         "recent_dialogue": recent,
+        "has_screenshot": bool(image_urls),
     }
+    payload_text = json.dumps(payload, ensure_ascii=False)
+    # При наличии скриншотов вход — мультимодальный (текст-payload + картинки),
+    # иначе обычная текстовая строка.
+    if image_urls:
+        planner_input = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": payload_text},
+                    *[{"type": "input_image", "image_url": url} for url in image_urls],
+                ],
+            }
+        ]
+    else:
+        planner_input = payload_text
     params = {
         "model": settings.openai_planner_model or settings.openai_model,
         "instructions": _PLANNER_INSTRUCTIONS.strip(),
-        "input": json.dumps(payload, ensure_ascii=False),
+        "input": planner_input,
         "text": {
             "format": {
                 "type": "json_schema",

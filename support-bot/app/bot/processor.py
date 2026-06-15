@@ -95,7 +95,7 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
 
         try:
             planning = await asyncio.wait_for(
-                plan_query(record.texts, pending=pending, recent=recent),
+                plan_query(record.texts, pending=pending, recent=recent, image_urls=image_urls),
                 timeout=settings.openai_run_timeout,
             )
         except Exception as e:
