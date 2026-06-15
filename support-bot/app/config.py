@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     debounce_delay: int = 4
     max_buffer_age: int = 3600
     max_images: int = 10
-    min_photo_width: int = 800
+    min_photo_width: int = 400
     openai_run_timeout: int = 60
 
     # RAG pipeline

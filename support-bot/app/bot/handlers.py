@@ -1,6 +1,7 @@
 import time
 
 from aiogram import F, Router
+from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from app.config import settings
@@ -8,6 +9,20 @@ from app.storage import db
 from app.bot import debounce
 
 router = Router()
+
+# Приветствие бота. Используется на /start; при разговорных репликах ассистент
+# представляется так же (см. system_prompt.txt).
+GREETING = (
+    "Здравствуйте! Я бот Маруся. Знаю всё об учёте на маркетплейсах и работе "
+    "сервиса Sellerdata. Помогу вам разобраться с сервисом и ответить на наиболее "
+    "распространённые вопросы. Если буду не уверена — отправлю запрос в службу поддержки."
+)
+
+
+@router.message(CommandStart())
+async def handle_start(message: Message) -> None:
+    """Приветствие на /start (без обращения к базе и оператору)."""
+    await message.answer(GREETING)
 
 
 async def _notify_operator(message: Message) -> None:
@@ -57,12 +72,13 @@ async def handle_message(message: Message) -> None:
             )
             await _notify_operator(message)
             return
-        await _save_to_buffer(message, new_file_id=largest.file_id)
+        # caption — подпись к фото (вопрос пользователя), иначе он теряется.
+        await _save_to_buffer(message, new_text=message.caption or "", new_file_id=largest.file_id)
         return
 
     # --- Документ-изображение ---
     if message.document and message.document.mime_type and message.document.mime_type.startswith("image/"):
-        await _save_to_buffer(message, new_file_id=message.document.file_id)
+        await _save_to_buffer(message, new_text=message.caption or "", new_file_id=message.document.file_id)
         return
 
     # --- Текст ---
