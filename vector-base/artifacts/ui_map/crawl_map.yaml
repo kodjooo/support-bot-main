@@ -1,0 +1,440 @@
+# Карта обхода интерфейса Sellerdata для автоматического снятия скриншотов.
+#
+# Источник: анализ кода github_sellerdata (ветка develop), Laravel + Inertia + Vue 3.
+# Кравлер на Playwright читает этот файл, логинится один раз, затем для каждой
+# записи в screens: переходит по path, выполняет actions (открыть вкладку/модалку/
+# состояние), ждёт wait_for, снимает скриншот и сохраняет как <key>.png в screens/.
+# Имя <key> по схеме раздел__подраздел[__состояние] -> doc_id и section_path
+# выводятся автоматически генератором build_ui_map.
+#
+# ВАЖНО: data-testid в коде НЕТ. Селекторы — по id, классу или видимому тексту.
+# Снимать на ДЕМО/ТЕСТОВОМ аккаунте с заполненными данными (пустые таблицы
+# распознаются плохо). Платформа по умолчанию desktop.
+
+# Базовый URL сервиса (демо-аккаунт с тестовыми данными живёт на проде).
+base_url: "https://app.sellerdata.ru"
+
+viewport: { width: 1440, height: 900 }   # десктоп-baseline
+format: png
+scale: 1                                  # 1x достаточно для vision
+full_page: true                           # снимать всю прокручиваемую страницу (модалки — viewport)
+
+# Маркетплейсы = активный магазин (account.data_source). Экраны те же, рендер
+# разный. Кравлер снимает каждый screen под каждым маркетплейсом, переключая
+# магазин через выпадашку в шапке (changeAccount). Имена кадров получают суффикс
+# @<id>. После сбора генератор делает дедуп по перцептивному хэшу: идентичные
+# WB/Ozon -> один чанк marketplace=common; различающиеся -> отдельные чанки.
+# Требование: на демо-аккаунте подключены оба магазина (WB-demo и Ozon-demo).
+marketplaces:
+  - id: wb
+    store_title: "Основной Магазин"        # WB-магазин в выпадашке (бейдж WB)
+  - id: ozon
+    store_title: "Дополнительный магазин"  # Ozon-магазин (бейдж Oz)
+  # - id: ym                               # Yandex Market — добавить одной строкой при релизе
+  #   store_title: "..."
+
+# Как переключить активный магазин перед обходом (выпадашка магазинов в шапке).
+# Меню — BreezeDropdown, пункты магазинов: a.user_auth_nav_item_link > span{title}.
+# Селектор точечный, чтобы не зацепить подпись текущего магазина в шапке.
+switch_store:
+  steps:
+    - { click: ".user_account_status" }              # открыть выпадашку магазинов
+    - { click: "a.user_auth_nav_item_link:has-text('{store_title}')" }
+    - { wait_for: { hidden: ".spinner-border" } }
+
+# Один раз логинимся под демо-аккаунтом. Креды НЕ хранить здесь — брать из env.
+login:
+  path: /login
+  steps:
+    - { fill: "#loginEmail", value: "${SELLERDATA_DEMO_EMAIL}" }
+    - { fill: "#loginPassword", value: "${SELLERDATA_DEMO_PASSWORD}" }
+    - { click: ".submit_button" }       # кнопка «Войти»
+    # Вход через Inertia (SPA) — ждём появления шапки авторизованного раздела,
+    # а не события load (его при pushState-навигации нет).
+    - { wait_for: { visible: ".user_account_status", timeout_ms: 30000 } }
+
+# Дефолтное ожидание перед снимком: все контентные лоадеры должны исчезнуть.
+# .data_loader_block НЕ включаем — это постоянный виджет фоновой синхронизации.
+default_wait:
+  hidden:
+    - ".spinner-border"
+    - ".loading-wrapper"
+    - ".ring_loader"
+    - ".loading-placeholder"
+    - ".multi-select__loading"
+    - ".btn-loader"
+  timeout_ms: 30000   # часть данных (Ozon-заказы) грузится медленно — даём больше времени
+
+screens:
+  # ===================== 1. Дашборд =====================
+  # Вкладки в шапке: tab=grid -> «Плитки», tab=chart -> «Диаграмма».
+  - key: дашборд__плитки
+    path: /dashboard?tab=grid
+    note: "Вкладка «Плитки» — плашки периодов + таблица (DashboardPeriods)"
+
+  - key: дашборд__диаграмма
+    path: /dashboard
+    # ?tab=chart применяется только для business-тарифа; кликаем саму вкладку.
+    actions: [ { click: "button.header-tabs__btn:has-text('Диаграмма')" } ]
+    note: "Вкладка «Диаграмма» — чарты (DashboardCharts)"
+
+  - key: дашборд__плитки__продажи
+    path: /dashboard?tab=grid
+    actions: [ { click: "#pills-products-tab" } ]   # вкладка «Продажи» (без группировки)
+
+  - key: дашборд__плитки__заказы
+    path: /dashboard?tab=grid
+    actions: [ { click: "#pills-orders-tab" } ]      # вкладка «Заказы» (без группировки)
+
+  # --- Группировки с раскрытым аккордеоном и детализацией (пункты 5, 6) ---
+  # Продажи: на демо доступна только «Бренду» (Артикулу — бизнес-функция, см.
+  # custom_facts). Заказы: «Заказам» и «Артикулу».
+  - key: дашборд__плитки__продажи__бренд
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-products-tab" }
+      - { select2: "#group-by-sku", option: "Бренду" }
+    note: "Продажи, сгруппированные по бренду (аккордеоны)"
+
+  - key: дашборд__плитки__продажи__бренд-раскрыто
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-products-tab" }
+      - { select2: "#group-by-sku", option: "Бренду" }
+      - { click: ".table-accordion__trigger" }      # раскрыть первый бренд-аккордеон
+    note: "Раскрытый бренд-аккордеон с дочерними товарами"
+
+  - key: дашборд__плитки__продажи__бренд-детализация
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-products-tab" }
+      - { select2: "#group-by-sku", option: "Бренду" }
+      - { click: "button.product-more-btn" }
+      - { click_all: "button.info-list__accordion__toggle-btn" }   # раскрыть все секции
+    ui_state: modal
+    parent_screen: дашборд__плитки__продажи__бренд
+    full_page: false
+    note: "Детализация при группировке по бренду (аккордеоны раскрыты)"
+
+  - key: дашборд__плитки__заказы__заказам
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Заказам" }
+    note: "Заказы, сгруппированные по заказам (аккордеоны)"
+
+  - key: дашборд__плитки__заказы__заказам-раскрыто
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Заказам" }
+      - { click: ".table-accordion__trigger" }
+    note: "Раскрытый аккордеон заказа"
+
+  - key: дашборд__плитки__заказы__заказам-детализация
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Заказам" }
+      - { click: "button.product-more-btn" }
+      - { click_all: "button.info-list__accordion__toggle-btn" }
+    ui_state: modal
+    parent_screen: дашборд__плитки__заказы__заказам
+    full_page: false
+
+  - key: дашборд__плитки__заказы__артикул
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Артикулу" }
+    note: "Заказы, сгруппированные по артикулу (аккордеоны)"
+
+  - key: дашборд__плитки__заказы__артикул-раскрыто
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Артикулу" }
+      - { click: ".table-accordion__trigger" }
+
+  - key: дашборд__плитки__заказы__артикул-детализация
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Артикулу" }
+      - { click: "button.product-more-btn" }
+      - { click_all: "button.info-list__accordion__toggle-btn" }
+    ui_state: modal
+    parent_screen: дашборд__плитки__заказы__артикул
+    full_page: false
+
+  - key: дашборд__модалка-период
+    path: /dashboard?tab=grid
+    actions: [ { click: "[data-target='#filterRangesModal']" } ]
+    ui_state: modal
+    parent_screen: дашборд__плитки
+    full_page: false
+
+  # дашборд__модалка-фильтр (#filterModal) — мобильный триггер, на десктопе скрыт;
+  # фильтр на десктопе инлайновый. Снять при мобильном проходе.
+
+  # --- Интерактивные состояния дашборда ---
+  - key: дашборд__плитка-детализация
+    path: /dashboard?tab=grid
+    actions:
+      - { click: ".block_item_footer__btn" }                       # «Больше» на плитке периода
+      - { click_all: "button.info-list__accordion__toggle-btn" }   # раскрыть все аккордеоны
+    ui_state: modal
+    parent_screen: дашборд__плитки
+    full_page: false
+    note: "Детализация плитки периода с раскрытыми аккордеонами (Продажи/Возвраты/Удержания)"
+
+  - key: дашборд__строка-детализация
+    path: /dashboard?tab=grid
+    actions:
+      - { click: "#pills-products-tab" }
+      - { click: "#pills-products tbody tr button.product-more-btn" }   # стрелка «Больше» в колонке «Инфо»
+      - { click_all: "button.info-list__accordion__toggle-btn" }        # раскрыть все аккордеоны
+    ui_state: modal
+    parent_screen: дашборд__плитки__продажи
+    full_page: false
+    note: "Детализация товара с раскрытыми аккордеонами"
+
+  - key: дашборд__диаграмма__заказы__группировка-артикул
+    path: /dashboard
+    actions:
+      - { click: "button.header-tabs__btn:has-text('Диаграмма')" }
+      - { click: "#pills-orders-tab" }
+      - { select2: "#groupOptions", option: "Артикулу" }
+    note: "Заказы, сгруппированные по артикулу (groupOrdersBy=bySku)"
+
+  - key: дашборд__диаграмма__модалка-фильтр
+    path: /dashboard
+    actions:
+      - { click: "button.header-tabs__btn:has-text('Диаграмма')" }
+      - { click: "[data-target='#filterRangesModal']" }
+    ui_state: modal
+    parent_screen: дашборд__диаграмма
+    full_page: false
+    note: "Окно фильтра/периода на вкладке «Диаграмма» (пункт 1)"
+
+  # Тултипы (v-tippy) скриншотами снимать ненадёжно (headless не удерживает
+  # hover-состояние к моменту кадра). Их тексты извлекаются из кода отдельно
+  # (см. docs/plans/ui-map.md, раздел про тултипы) и добавляются в корпус текстом.
+
+  - key: дашборд__общий
+    path: /dashboard/general
+    note: "Дашборд по всем магазинам сразу (forAll)"
+
+  - key: дашборд__импорт-отчетов
+    path: /dashboard/import
+    marketplaces: [wb]    # импорт еженедельных отчётов WB; Ozon-аналога нет
+    note: "Ручной импорт еженедельных отчётов Wildberries"
+
+  - key: дашборд__импорт-упд
+    path: /dashboard/upd-import
+    marketplaces: [ozon]  # импорт данных о продажах Ozon в страны СНГ; WB-аналога нет
+    note: "Ручной импорт данных о продажах Ozon в страны СНГ"
+
+  # ===================== 2. Товары =====================
+  - key: товары__список
+    path: /products
+
+  - key: товары__список__без-себестоимости
+    path: /products
+    actions: [ { click: "label[for='show-empty']" } ]   # чекбокс «Без себестоимости» (клик по label)
+
+  # товары__список__скрытые убран: #show-hidden появляется только при наличии
+  # скрытых товаров, на демо их нет — экран снять нельзя.
+  # товары__модалка-фильтр (#productsFilterModal) — мобильный триггер, на десктопе
+  # скрыт; снять при мобильном проходе.
+
+  # ===================== 3. Расходы =====================
+  - key: расходы__список
+    path: /expenses
+
+  - key: расходы__модалка-фильтр
+    path: /expenses
+    actions: [ { click: "[data-target='#expensesFilterModal']" } ]
+    ui_state: modal
+    parent_screen: расходы__список
+    full_page: false
+
+  # расходы__модалка-импорт убран: кнопка «Импорт расходов» на десктопе скрыта.
+
+  - key: расходы__модалка-создание
+    path: /expenses
+    actions: [ { click: ".buttons-panel_add-expense" } ]   # кнопка «Добавить»
+    ui_state: modal
+    parent_screen: расходы__список
+    full_page: false
+    note: "Модалка создания расхода (#expensesCreate)"
+
+  - key: расходы__модалка-редактирование
+    path: /expenses
+    actions: [ { click: "table tbody tr td.action-td button.product-more-btn" } ]   # стрелка «Больше» → редактирование
+    # (клик по всей строке ненадёжен — попадает на ссылку товара)
+    ui_state: modal
+    parent_screen: расходы__список
+    full_page: false
+    note: "Модалка редактирования расхода"
+
+  - key: расходы__импорт
+    path: /expenses/import
+    marketplaces: [wb]    # загрузка удержаний WB; Ozon передаёт всё через API
+    note: "Загрузка удержаний WB, не передающихся через API"
+
+  # ===================== 4. Самовыкупы =====================
+  - key: самовыкупы__список
+    path: /redeems
+
+  - key: самовыкупы__модалка-фильтр
+    path: /redeems
+    actions: [ { click: "[data-target='#redeemsFilterModal']" } ]
+    ui_state: modal
+    parent_screen: самовыкупы__список
+    full_page: false
+
+  - key: самовыкупы__модалка-создание
+    path: /redeems
+    actions: [ { click: ".buttons-panel__redeem-add" } ]   # кнопка «Добавить»
+    ui_state: modal
+    parent_screen: самовыкупы__список
+    full_page: false
+    note: "Модалка создания самовыкупа (#redeemCreate)"
+
+  - key: самовыкупы__модалка-редактирование
+    path: /redeems
+    actions: [ { click: "table tbody tr button.product-more-btn" } ]   # редактирование строки
+    ui_state: modal
+    parent_screen: самовыкупы__список
+    full_page: false
+    note: "Модалка редактирования самовыкупа"
+
+  # ===================== Реклама =====================
+  # WB: таблица кампаний (данные грузятся долго — ждём появления строк ._lvl-0).
+  # Ozon: экран-приглашение внести ключ Performance (._lvl-0 не появится — мягкий таймаут).
+  - key: реклама__товары
+    path: /advertising?tab=products
+    actions: [ { wait_for: { visible: "._lvl-0", timeout_ms: 75000 } } ]
+
+  # Раскрытие 4 уровней аккордеона кампании (кампания → товар → дата → площадка).
+  - key: реклама__товары-раскрыто
+    path: /advertising?tab=products
+    marketplaces: [wb]
+    actions:
+      - { wait_for: { visible: "._lvl-0", timeout_ms: 75000 } }
+      - { click: "._lvl-0 .table-accordion__trigger" }   # раскрыть кампанию
+      - { click: "._lvl-1 .table-accordion__trigger" }    # раскрыть товар
+      - { click: "._lvl-2 .table-accordion__trigger" }    # раскрыть дату → видны площадки
+    note: "Рекламная кампания с раскрытыми уровнями: товар → дата → площадки"
+
+  # Открытые фильтры рекламы (как у склада — отдельными кадрами).
+  - key: реклама__фильтр-типы
+    path: /advertising?tab=products
+    marketplaces: [wb]
+    actions:
+      - { wait_for: { visible: "._lvl-0", timeout_ms: 75000 } }
+      - { click: "button.index_select_button:has-text('Все типы')" }
+    full_page: false
+    note: "Открытый фильтр «Все типы» (тип кампании)"
+
+  - key: реклама__фильтр-статусы
+    path: /advertising?tab=products
+    marketplaces: [wb]
+    actions:
+      - { wait_for: { visible: "._lvl-0", timeout_ms: 75000 } }
+      - { click: "button.index_select_button:has-text('Все статусы')" }
+    full_page: false
+    note: "Открытый фильтр «Все статусы» (статус кампании)"
+
+  # реклама__медийная — у демо-пользователя нет доступа к разделу; скриншоты
+  # сделает пользователь вручную (пункт 15). Из обхода убрана.
+
+  - key: подключение__реклама-ozon
+    path: /advertising/ozon-performance-setup
+    marketplaces: [ozon]    # экран настройки Ozon Performance (состояние «ключ не внесён»)
+    note: "Настройка Ozon Performance (ключи рекламного API)"
+
+  # ===================== 5. Склад =====================
+  - key: склад__список
+    path: /warehouse
+
+  - key: склад__группировка-тип
+    path: /warehouse
+    actions: [ { click: ".index_select_button:has-text('FBO/FBS')" } ]   # дропдаун типа склада
+    full_page: false
+    note: "Выбор типа склада (FBO/FBS)"
+
+  - key: склад__выбор-складов
+    path: /warehouse
+    actions: [ { click: ".index_select_button:has-text('Все склады')" } ]  # дропдаун выбора складов
+    full_page: false
+    note: "Выбор конкретных складов"
+
+  # склад__модалка-фильтр (#FilterModalWarehouse) — мобильный триггер, на десктопе
+  # скрыт; снять при мобильном проходе.
+
+  # ===================== 6. Настройки =====================
+  - key: настройки__магазины
+    path: /settings
+
+  - key: настройки__модалка-изменить-ключ
+    path: /settings
+    actions: [ { click_text: "Изменить ключ" } ]
+    ui_state: modal
+    parent_screen: настройки__магазины
+    full_page: false
+    note: "Попап изменения API-ключа магазина"
+
+  - key: настройки__модалка-настройки
+    path: /settings
+    actions: [ { click: "a:has(.fm-settings)" } ]   # ссылка «⚙ Настройки» магазина
+    ui_state: modal
+    parent_screen: настройки__магазины
+    full_page: false
+    note: "Попап «Настройки аккаунта» магазина (налоги, НДС, отчёты)"
+
+  - key: настройки__модалка-удалить
+    path: /settings
+    # «Удалить» у основного магазина disabled (._disabled); кликаем активную (доп. магазин).
+    actions: [ { click: "a:has-text('Удалить'):not(._disabled)" } ]
+    ui_state: modal
+    parent_screen: настройки__магазины
+    full_page: false
+    note: "Попап подтверждения удаления магазина"
+
+  # настройки__модалка-пароль убран: «Изменить пароль» (a.dark_link) не открывает
+  # модалку, а отправляет письмо для смены пароля (показывает тост). Описано
+  # текстом в custom_facts.jsonl (настройки-пароль).
+
+  # ===================== Тариф / подключение =====================
+  - key: тариф__список
+    path: /pricing
+
+  - key: тариф__модалка-купить
+    path: /pricing
+    # Кнопка «Купить» текущего тарифа — disabled <button>; активная — <a> (напр. Бизнес).
+    actions: [ { click: ".pricing__pack__actions a:has-text('Купить')" } ]
+    ui_state: modal
+    parent_screen: тариф__список
+    full_page: false
+    note: "Окно выбора способа оплаты (#buyModal «Как вы будете платить?»)"
+
+  - key: подключение__api-ключ
+    path: /api-key
+    marketplaces: [wb]    # форма всегда показывает Wildberries (hide-ozon=true)
+    note: "Подключение ключа Wildberries"
+
+  - key: подключение__api-ключ-ozon
+    path: /ozon-connection
+    marketplaces: [ozon]  # экран ввода ключа Ozon (hide-wildberries=true)
+    note: "Подключение ключа Ozon"
+
+  - key: подключение__магазин
+    path: /connecting?new
+    note: "Добавление магазина (?new — иначе редирект на дашборд при валидном ключе)"
+
+# --- Кандидаты для мобильной версии (подключать позже, только если вёрстка
+# --- расходится): у дашборда/расходов есть отдельные mobile-кнопки фильтра
+# --- (.dashboard-nav__btn_mob -> #filterModal / #expensesFilterModalMob).
+# --- Снимать при viewport ~375x812 с тем же key + платформа mobile.

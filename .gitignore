@@ -19,3 +19,23 @@ vector-base/artifacts/rag_corpus/manifest.json
 vector-base/artifacts/rag_corpus/sources/
 vector-base/secrets/*.json
 !vector-base/secrets/.gitkeep
+
+# Карта интерфейса: тяжёлые исходные скрины в git не едут (только генератор,
+# crawl_map.yaml, выверенные sources/*.json и итоговый JSONL).
+vector-base/artifacts/ui_map/screens/
+
+# Обогащение базы из истории переписок: сырой Telegram-экспорт (result.json,
+# ~сотни МБ, содержит PII) в git не едет — только генератор и выходные артефакты.
+vector-base/artifacts/history_enrich/export/
+# Промежуточные данные с клиентской перепиской (worklist и поэтапный анализ) — вне git.
+vector-base/artifacts/history_enrich/worklist/
+vector-base/artifacts/history_enrich/analysis/
+# Человекочитаемые выгрузки содержат клиентские формулировки — в git не едут
+# (в репозитории остаются только скрипты, README и RUNBOOK).
+vector-base/artifacts/history_enrich/gap_report.md
+vector-base/artifacts/history_enrich/gap_answers.md
+vector-base/artifacts/history_enrich/gap_answers_verified.md
+vector-base/artifacts/history_enrich/review_for_expert.xlsx
+
+# Human-readable дубль карты интерфейса (загрузчику нужен только .jsonl)
+vector-base/artifacts/ui_map/ui_map_chunks.json

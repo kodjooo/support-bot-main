@@ -38,7 +38,7 @@ sync:
 	docker compose run --rm vector-base python -m app.sync_docs --force
 
 load-rag:
-	docker compose exec vector-base python -m app.load_rag_corpus artifacts/rag_corpus/rag_chunks.jsonl
+	docker compose exec vector-base python -m app.load_rag_corpus artifacts/rag_corpus/rag_chunks.jsonl artifacts/ui_map/ui_map_chunks.jsonl
 
 shell-bot:
 	docker compose run --rm bot sh

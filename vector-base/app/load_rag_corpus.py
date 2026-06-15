@@ -50,10 +50,20 @@ def _metadata(chunk: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in base.items() if value is not None}
 
 
-def load_corpus(path: Path) -> int:
+def load_corpus(paths: Path | list[Path]) -> int:
     settings = get_settings()
-    chunks = _read_jsonl(path)
-    logger.info("Загрузка RAG-корпуса из %s, блоков: %s.", path, len(chunks))
+    path_list = [paths] if isinstance(paths, Path) else list(paths)
+    chunks: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for path in path_list:
+        part = _read_jsonl(path)
+        for chunk in part:
+            if chunk["id"] in seen_ids:
+                raise ValueError(f"Дублирующийся id {chunk['id']} в {path}.")
+            seen_ids.add(chunk["id"])
+        chunks.extend(part)
+        logger.info("Прочитан корпус %s, блоков: %s.", path, len(part))
+    logger.info("Всего блоков к загрузке: %s из файлов: %s.", len(chunks), len(path_list))
 
     embedding_service = EmbeddingService(settings=settings)
     embedding_results = embedding_service.embed_texts(chunk["embedding_text"] for chunk in chunks)
@@ -74,17 +84,24 @@ def load_corpus(path: Path) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Загружает структурированный JSONL RAG-корпус в ChromaDB.")
     parser.add_argument(
-        "path",
-        nargs="?",
+        "paths",
+        nargs="*",
         type=Path,
-        default=Path("artifacts/rag_corpus/rag_chunks.jsonl"),
-        help="Путь к rag_chunks.jsonl.",
+        default=[
+            Path("artifacts/rag_corpus/rag_chunks.jsonl"),
+            Path("artifacts/ui_map/ui_map_chunks.jsonl"),
+        ],
+        help="Пути к JSONL-корпусам (по умолчанию: разделы + карта интерфейса).",
     )
     args = parser.parse_args()
 
     settings = get_settings()
     configure_logging(settings.log_level)
-    count = load_corpus(args.path)
+    # Грузим только существующие файлы (карта интерфейса может отсутствовать).
+    existing = [p for p in args.paths if p.exists()]
+    if not existing:
+        raise SystemExit(f"Не найден ни один корпус: {args.paths}")
+    count = load_corpus(existing)
     print(json.dumps({"status": "ok", "chunks": count}, ensure_ascii=False))
 
 

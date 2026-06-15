@@ -20,6 +20,9 @@ class Settings(BaseSettings):
         alias="OPENAI_EMBEDDING_MODEL",
     )
     openai_proxy_url: Optional[str] = Field(default=None, alias="OPENAI_PROXY_URL")
+    # Модель для распознавания скриншотов интерфейса (offline-генератор карты UI).
+    # GPT-5 даёт лучший баланс качества vision и цены (вход дешевле gpt-4o).
+    openai_vision_model: str = Field(default="gpt-5", alias="OPENAI_VISION_MODEL")
     # Количество релевантных чанков, возвращаемых при поиске
     search_top_k: int = Field(default=3, alias="SEARCH_TOP_K")
     # Во сколько раз больше кандидатов брать из ChromaDB перед переранжированием
