@@ -265,7 +265,7 @@ def _build_chunks(base_key: str, marketplace: str, source: dict[str, Any]) -> li
         emit(
             0,
             f"Обзор экрана «{screen_title}»{mp_hint}",
-            f"Экран «{screen_title}» (раздел {section}){mp_hint}. {summary}",
+            summary,  # summary от агента уже естественный — без технических меток
             [f"что показывает {screen_title}", f"для чего раздел {section}", f"где находится {screen_title}"],
             section_path,
             [summary],
@@ -280,7 +280,9 @@ def _build_chunks(base_key: str, marketplace: str, source: dict[str, Any]) -> li
         purpose = (el.get("purpose") or "").strip()
         appearance = (el.get("appearance") or "").strip()
         aliases = [a.strip() for a in (el.get("aliases") or []) if a.strip()]
-        answer = f"«{name}» — находится {location} (экран «{screen_title}», раздел {section}){mp_hint}."
+        # Человекочитаемый ответ: расположение + назначение. Без технических меток
+        # (раздел/экран/маркетплейс хранятся в embedding_text/metadata для поиска).
+        answer = f"«{name}» — {location}." if location else f"«{name}»."
         if purpose:
             answer += f" {purpose}"
         intents = [f"где находится {name}", f"что такое {name}", f"как {purpose[:40]}" if purpose else ""]
