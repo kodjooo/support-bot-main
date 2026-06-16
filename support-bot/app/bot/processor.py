@@ -77,10 +77,27 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
             await db.clear_pending_clarification(user_id)
             return
 
-        # URL изображений — строятся на лету, токен не хранится в БД
+        # URL изображений — строятся на лету, токен не хранится в БД.
+        # Сеть до Telegram через прокси периодически моргает: делаем ретраи, а при
+        # окончательной неудаче переводим на оператора, чтобы не упасть молча.
         image_urls = []
         for file_id in effective_image_ids:
-            url = await get_image_url(bot, file_id)
+            url = None
+            for attempt in range(3):
+                try:
+                    url = await get_image_url(bot, file_id)
+                    break
+                except Exception as e:
+                    logger.warning(
+                        "get_image_url не удался (user_id=%s, попытка %s): %s", user_id, attempt + 1, e
+                    )
+                    await asyncio.sleep(1)
+            if url is None:
+                logger.error("Не удалось получить URL картинки (user_id=%s) — перевод на оператора", user_id)
+                await transfer_to_operator(bot, user_id, record.first_name, record.last_name)
+                await db.clear_buffer(user_id)
+                await db.clear_pending_clarification(user_id)
+                return
             image_urls.append(url)
 
         user_query = "\n".join(effective_texts)
