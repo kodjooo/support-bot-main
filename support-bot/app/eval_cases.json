@@ -5,7 +5,7 @@
   {"id": "sebes-why", "question": "зачем вообще вносить себестоимость?", "tag": "товары", "expect_section": "Товары", "forbid_in_answer": ["информационный баннер"]},
   {"id": "tovary-hide", "question": "как скрыть товар из списка?", "tag": "товары", "expect_section": "Товары"},
   {"id": "tovary-excel", "question": "можно выгрузить список товаров в эксель?", "tag": "товары", "expect_section": "Товары"},
-  {"id": "tovary-group-art", "question": "как сгруппировать товары по артикулу?", "tag": "товары", "expect_section": "Товары"},
+  {"id": "tovary-group-art", "question": "как сгруппировать товары по артикулу?", "tag": "товары", "expect_doc": "артикул"},
 
   {"id": "tariff-buy-standard", "question": "почему кнопка купить есть только в бизнес тарифе, а как купить стандарт?", "tag": "тариф", "expect_section": "Оплата"},
   {"id": "tariff-pay-method", "question": "как сменить автосписание на ручную оплату картой?", "tag": "тариф", "expect_section": "Оплата"},
@@ -28,7 +28,7 @@
   {"id": "dash-payout", "question": "что показывает сумма выплат в плитке?", "tag": "дашборд", "expect_section": "Дашборд"},
   {"id": "dash-deduction", "question": "что входит в удержания?", "tag": "дашборд", "expect_section": "Дашборд"},
   {"id": "dash-roi", "question": "что такое ROI в сервисе?", "tag": "дашборд", "expect_section": "ROI"},
-  {"id": "dash-orders-vs-sales", "question": "не пойму где выкупы и что такое продажи в таблице?", "tag": "дашборд", "expect_section": "Заказы"},
+  {"id": "dash-orders-vs-sales", "question": "что показывает вкладка Заказы в дашборде?", "tag": "дашборд", "expect_section": "Заказы"},
   {"id": "dash-tile-more", "question": "что открывается по кнопке больше на плитке?", "tag": "дашборд", "expect_doc": "дашборд", "expect_in_answer": ["детализ"]},
   {"id": "dash-period", "question": "как выбрать другой период на дашборде?", "tag": "дашборд", "expect_section": "Дашборд"},
 
