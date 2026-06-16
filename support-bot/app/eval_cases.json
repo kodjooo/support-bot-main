@@ -41,7 +41,8 @@
     "id": "dashboard-tile-more",
     "question": "что показывает кнопка Больше на плитке дашборда?",
     "tag": "дашборд",
-    "expect_doc": "плитка-детализация"
+    "expect_doc": "дашборд",
+    "expect_in_answer": ["детализ"]
   },
   {
     "id": "reklama-levels",
