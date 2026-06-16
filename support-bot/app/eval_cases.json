@@ -54,6 +54,13 @@
   {"id": "rekl-refresh", "question": "как часто обновляются расходы на рекламу?", "tag": "реклама", "expect_section": "Реклама"},
   {"id": "rekl-ozon-key", "question": "почему по озону не подтягиваются расходы на рекламу?", "tag": "реклама", "expect_doc": "реклама-ozon"},
 
+  {"id": "nalog-na-pribyl", "question": "как учесть налог на прибыль?", "tag": "настройки", "expect_section": "Настройки"},
+  {"id": "unsub-service", "question": "как отписаться от сервиса?", "tag": "тариф", "expect_doc": "тариф-отписаться"},
+  {"id": "sebes-add", "question": "как внести себестоимость товаров?", "tag": "товары", "expect_section": "себестоимости"},
+  {"id": "rashod-buhgalter", "question": "как указать расходы на бухгалтера?", "tag": "расходы", "expect_section": "Расходы"},
+  {"id": "img-wb-mismatch-reklama", "question": "почему данные не сходятся с ВБ?", "tag": "image", "image": "dash_detail_reklama.png", "expect_section": "сверк"},
+  {"id": "img-wb-mismatch-uderzh", "question": "почему данные не сходятся с ВБ?", "tag": "image", "image": "dash_detail_uderzhaniya.png", "expect_section": "сверк"},
+
   {"id": "gap-yandex", "question": "когда уже добавите интеграцию с яндекс маркетом?", "tag": "gap", "expect_gap": true},
   {"id": "gap-parser", "question": "посоветуйте парсер для мониторинга цен конкурентов", "tag": "gap", "expect_gap": true},
   {"id": "gap-1c", "question": "как настроить выгрузку в 1С?", "tag": "gap", "expect_gap": true},
