@@ -1,91 +1,64 @@
 [
-  {
-    "id": "rashod-edit-location",
-    "question": "где находится окно изменения расхода?",
-    "tag": "расходы",
-    "expect_doc": "расходы:модалка-редактирование"
-  },
-  {
-    "id": "rashod-add",
-    "question": "как добавить новый расход?",
-    "tag": "расходы",
-    "expect_section": "Расходы"
-  },
-  {
-    "id": "rashod-popup-purpose",
-    "question": "зачем нужно окно добавления расхода?",
-    "tag": "расходы",
-    "expect_section": "Расходы",
-    "expect_in_answer": ["расход"],
-    "forbid_in_answer": ["информационный баннер", "модалка-"]
-  },
-  {
-    "id": "tariff-buy",
-    "question": "как оплатить тариф?",
-    "tag": "тариф",
-    "expect_doc": "тариф"
-  },
-  {
-    "id": "tariff-unsubscribe",
-    "question": "как отписаться от подписки и отключить автопродление?",
-    "tag": "тариф",
-    "expect_doc": "тариф-отписаться"
-  },
-  {
-    "id": "tovary-grouping",
-    "question": "можно ли сгруппировать товары по артикулу?",
-    "tag": "товары",
-    "expect_doc": "товары"
-  },
-  {
-    "id": "dashboard-tile-more",
-    "question": "что показывает кнопка Больше на плитке дашборда?",
-    "tag": "дашборд",
-    "expect_doc": "дашборд",
-    "expect_in_answer": ["детализ"]
-  },
-  {
-    "id": "reklama-levels",
-    "question": "сколько уровней вложенности у рекламной кампании?",
-    "tag": "реклама",
-    "expect_doc": "реклама"
-  },
-  {
-    "id": "ozon-ad-key",
-    "question": "почему не отображается реклама по ozon и как её подключить?",
-    "tag": "реклама",
-    "expect_doc": "реклама-ozon"
-  },
-  {
-    "id": "settings-change-key",
-    "question": "как изменить API-ключ магазина?",
-    "tag": "настройки",
-    "expect_section": "Настройки"
-  },
-  {
-    "id": "sebestoimost-why",
-    "question": "зачем нужна себестоимость товара?",
-    "tag": "товары",
-    "expect_section": "Товары",
-    "forbid_in_answer": ["информационный баннер"]
-  },
-  {
-    "id": "warehouse-grouping",
-    "question": "как на складе сгруппировать товары по артикулу?",
-    "tag": "склад",
-    "expect_section": "Склад"
-  },
-  {
-    "id": "greeting",
-    "question": "привет",
-    "tag": "разговор",
-    "expect_conversational": true
-  },
-  {
-    "id": "img-rashod-popup",
-    "question": "где этот попап находится?",
-    "tag": "image",
-    "image": "rashod_edit.png",
-    "expect_doc": "расходы:модалка"
-  }
+  {"id": "sebes-import-where", "question": "не нашёл где импортировать себестоимость, подскажите", "tag": "товары", "expect_section": "себестоимости"},
+  {"id": "sebes-by-periods", "question": "как заносить себестоимость по периодам?", "tag": "товары", "expect_section": "себестоимости"},
+  {"id": "sebes-mass-edit", "question": "у нас 2000 артикулов, как массово изменить себестоимость?", "tag": "товары", "expect_section": "себестоимости"},
+  {"id": "sebes-why", "question": "зачем вообще вносить себестоимость?", "tag": "товары", "expect_section": "Товары", "forbid_in_answer": ["информационный баннер"]},
+  {"id": "tovary-hide", "question": "как скрыть товар из списка?", "tag": "товары", "expect_section": "Товары"},
+  {"id": "tovary-excel", "question": "можно выгрузить список товаров в эксель?", "tag": "товары", "expect_section": "Товары"},
+  {"id": "tovary-group-art", "question": "как сгруппировать товары по артикулу?", "tag": "товары", "expect_section": "Товары"},
+
+  {"id": "tariff-buy-standard", "question": "почему кнопка купить есть только в бизнес тарифе, а как купить стандарт?", "tag": "тариф", "expect_section": "Оплата"},
+  {"id": "tariff-pay-method", "question": "как сменить автосписание на ручную оплату картой?", "tag": "тариф", "expect_section": "Оплата"},
+  {"id": "tariff-foreign-card", "question": "оплата не с российской карты возможна?", "tag": "тариф", "expect_section": "Оплата"},
+  {"id": "tariff-prolong", "question": "а как продлить подписку?", "tag": "тариф", "expect_section": "Оплата"},
+  {"id": "tariff-unsub", "question": "как отключить автопродление подписки?", "tag": "тариф", "expect_doc": "тариф-отписаться"},
+
+  {"id": "nalog-where-set", "question": "где ввести ставку налога?", "tag": "настройки", "expect_section": "Настройки"},
+  {"id": "nalog-recalc", "question": "если поменяю процент налога, как быстро всё пересчитается?", "tag": "настройки", "expect_section": "Настройки"},
+  {"id": "apikey-expired", "question": "обновляю ключ, а пишет что просрочен, что делать?", "tag": "настройки", "expect_section": "Настройки"},
+  {"id": "apikey-where-ozon", "question": "где взять api ключ для озона?", "tag": "подключение", "expect_doc": "api-ключ-ozon"},
+  {"id": "add-store", "question": "как добавить второй магазин?", "tag": "настройки", "expect_section": "Настройки"},
+  {"id": "change-pass", "question": "как сменить пароль от аккаунта?", "tag": "настройки", "expect_doc": "настройки-пароль"},
+  {"id": "referral", "question": "что за реферальная программа у вас?", "tag": "настройки", "expect_section": "Пригласи друга"},
+  {"id": "partner", "question": "как стать вашим партнёром?", "tag": "настройки", "expect_section": "Пригласи друга"},
+
+  {"id": "dash-tiles", "question": "что показывают плитки на главном экране?", "tag": "дашборд", "expect_section": "Плитки"},
+  {"id": "dash-grossnet", "question": "чем отличается валовая прибыль от чистой?", "tag": "дашборд", "expect_section": "Дашборд"},
+  {"id": "dash-redemption", "question": "что значит выкупаемость?", "tag": "дашборд", "expect_section": "Дашборд"},
+  {"id": "dash-payout", "question": "что показывает сумма выплат в плитке?", "tag": "дашборд", "expect_section": "Дашборд"},
+  {"id": "dash-deduction", "question": "что входит в удержания?", "tag": "дашборд", "expect_section": "Дашборд"},
+  {"id": "dash-roi", "question": "что такое ROI в сервисе?", "tag": "дашборд", "expect_section": "ROI"},
+  {"id": "dash-orders-vs-sales", "question": "не пойму где выкупы и что такое продажи в таблице?", "tag": "дашборд", "expect_section": "Заказы"},
+  {"id": "dash-tile-more", "question": "что открывается по кнопке больше на плитке?", "tag": "дашборд", "expect_doc": "дашборд", "expect_in_answer": ["детализ"]},
+  {"id": "dash-period", "question": "как выбрать другой период на дашборде?", "tag": "дашборд", "expect_section": "Дашборд"},
+
+  {"id": "sverka-where", "question": "а где на вб сверить вашу цифру по продажам?", "tag": "сверка", "expect_section": "сверк"},
+  {"id": "sverka-reports", "question": "с какими отчётами вб сверять данные?", "tag": "сверка", "expect_section": "сверк"},
+  {"id": "sverka-payout", "question": "как проверить что сумма выплат у вас правильная?", "tag": "сверка", "expect_section": "сверк"},
+
+  {"id": "rashod-add", "question": "как добавить расход?", "tag": "расходы", "expect_section": "Расходы"},
+  {"id": "rashod-recurring", "question": "можно сделать чтобы расход добавлялся каждый месяц сам?", "tag": "расходы", "expect_section": "Расходы"},
+  {"id": "rashod-amort", "question": "что значит амортизировать расход по дням?", "tag": "расходы", "expect_section": "Расходы"},
+  {"id": "rashod-product", "question": "как привязать расход к конкретному товару?", "tag": "расходы", "expect_section": "Расходы"},
+  {"id": "rashod-not-shown", "question": "добавил расход, а он не отображается, почему?", "tag": "расходы", "expect_section": "Расходы"},
+
+  {"id": "redeem-add", "question": "как внести самовыкуп?", "tag": "самовыкупы", "expect_section": "Самовыкупы"},
+  {"id": "redeem-order-num", "question": "по какому номеру заказа искать самовыкуп для озона?", "tag": "самовыкупы", "expect_section": "Самовыкупы"},
+
+  {"id": "sklad-stock", "question": "где посмотреть остатки на складе?", "tag": "склад", "expect_section": "Склад"},
+  {"id": "sklad-potential", "question": "что такое потенциальная прибыль на складе?", "tag": "склад", "expect_section": "Склад"},
+  {"id": "sklad-notify", "question": "как настроить уведомления о низких остатках?", "tag": "склад", "expect_section": "Склад"},
+  {"id": "sklad-fbo-fbs", "question": "как посмотреть данные только по FBO или FBS?", "tag": "склад", "expect_section": "Склад"},
+
+  {"id": "ozon-sales-param", "question": "какой параметр у вас отвечает за сумму продаж на ozon?", "tag": "озон", "expect_section": "Ozon"},
+  {"id": "rekl-refresh", "question": "как часто обновляются расходы на рекламу?", "tag": "реклама", "expect_section": "Реклама"},
+  {"id": "rekl-ozon-key", "question": "почему по озону не подтягиваются расходы на рекламу?", "tag": "реклама", "expect_doc": "реклама-ozon"},
+
+  {"id": "gap-yandex", "question": "когда уже добавите интеграцию с яндекс маркетом?", "tag": "gap", "expect_gap": true},
+  {"id": "gap-parser", "question": "посоветуйте парсер для мониторинга цен конкурентов", "tag": "gap", "expect_gap": true},
+  {"id": "gap-1c", "question": "как настроить выгрузку в 1С?", "tag": "gap", "expect_gap": true},
+  {"id": "gap-reviews", "question": "можно через вас отвечать на отзывы покупателей?", "tag": "gap", "expect_gap": true},
+  {"id": "gap-mobile", "question": "у вас есть мобильное приложение?", "tag": "gap", "expect_gap": true},
+
+  {"id": "img-rashod-popup", "question": "где этот попап находится?", "tag": "image", "image": "rashod_edit.png", "expect_doc": "расходы:модалка"}
 ]

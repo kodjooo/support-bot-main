@@ -107,13 +107,14 @@ async def run_case(case: dict, level: str) -> dict:
         selected = [chunks[i] for i in rer.selected_indices if 0 <= i < len(chunks)]
         res["kept"] = _doc_ids(selected)
         res["enough_context"] = rer.enough_context
+    is_gap = bool(case.get("expect_gap"))
     kept_hit = _hit(selected, case.get("expect_doc"), case.get("expect_section"))
     res["kept_hit"] = kept_hit
-    if case.get("expect_doc") or case.get("expect_section"):
+    if not is_gap and (case.get("expect_doc") or case.get("expect_section")):
         res["checks"].append(("kept_hit", kept_hit))
 
     # 4) Ответ ассистента (уровень full)
-    if level == "full" and selected:
+    if level == "full":
         prefix = "Контекст из базы знаний (отобран RAG):\n\n" + "\n\n".join(
             c.to_prompt_text() for c in selected
         )
@@ -125,8 +126,17 @@ async def run_case(case: dict, level: str) -> dict:
             res["checks"].append((f"includes:{sub}", sub.lower() in text))
         for sub in case.get("forbid_in_answer", []):
             res["checks"].append((f"forbids:{sub}", sub.lower() not in text))
+        if is_gap:
+            # Пробел: ок, если бот не выдумал, а корректно отказался / перевёл на поддержку.
+            decline = ("поддержк", "оператор", "уточн", "не могу", "пока не", "в планах",
+                       "не предусмотрен", "свяжитесь", "напишите", "не реализован", "только wildberries")
+            gap_ok = needs_op or any(w in text for w in decline)
+            res["checks"].append(("graceful_gap", gap_ok))
 
-    res["ok"] = all(ok for _, ok in res["checks"]) if res["checks"] else res.get("kept_hit", True)
+    if is_gap and level != "full":
+        res["ok"] = True  # на уровне planner/retrieval пробелы только наблюдаем
+    else:
+        res["ok"] = all(ok for _, ok in res["checks"]) if res["checks"] else res.get("kept_hit", True)
     return res
 
 
