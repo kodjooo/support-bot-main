@@ -41,7 +41,7 @@ from pathlib import Path
 
 from app.config import settings
 
-_BASE = Path(__file__).resolve().parent.parent  # каталог support-bot (в контейнере /app)
+_BASE = Path(__file__).resolve().parent  # каталог app/ (копируется в образ)
 CASES_PATH = _BASE / "eval_cases.json"
 IMAGES_DIR = _BASE / "eval_images"
 
