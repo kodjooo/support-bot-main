@@ -318,10 +318,24 @@ async def process_and_reply(bot: Bot, user_id: str) -> None:
             cleaned = clean_response(response_text or "")
             try:
                 if cleaned:
-                    await bot.send_message(chat_id=user_id, text=cleaned)
-                    # Сохраняем пару в историю follow-up только для RAG-ответов
-                    if store_history:
-                        await db.append_exchange(user_id, user_query, cleaned)
+                    # Сеть до Telegram через прокси периодически таймаутит — ретраим
+                    # отправку готового ответа, чтобы он не пропал из-за разового сбоя.
+                    sent = False
+                    for attempt in range(3):
+                        try:
+                            await bot.send_message(chat_id=user_id, text=cleaned)
+                            sent = True
+                            break
+                        except Exception as e:
+                            logger.warning("Отправка ответа не удалась (user_id=%s, попытка %s): %s",
+                                           user_id, attempt + 1, e)
+                            await asyncio.sleep(1)
+                    if sent:
+                        # Сохраняем пару в историю follow-up только для RAG-ответов
+                        if store_history:
+                            await db.append_exchange(user_id, user_query, cleaned)
+                    else:
+                        logger.error("Не удалось отправить ответ пользователю (user_id=%s) после ретраев", user_id)
                 else:
                     logger.warning("Пустой ответ после clean_response (user_id=%s), сообщение не отправлено", user_id)
             except Exception as e:
