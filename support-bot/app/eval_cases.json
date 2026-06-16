@@ -183,7 +183,9 @@
 "id": "sverka-where",
 "question": "а где на вб сверить вашу цифру по продажам?",
 "tag": "сверка",
-"expect_section": "сверк"
+"expect_in_answer": [
+"отчёт"
+]
 },
 {
 "id": "sverka-reports",
@@ -288,7 +290,9 @@
 "id": "nalog-na-pribyl",
 "question": "как учесть налог на прибыль?",
 "tag": "настройки",
-"expect_section": "Настройки"
+"expect_in_answer": [
+"настройк"
+]
 },
 {
 "id": "unsub-service",
